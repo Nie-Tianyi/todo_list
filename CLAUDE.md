@@ -5,15 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Development
 
 ```bash
-# Run the web app (also auto-compiles Tailwind CSS in Dioxus 0.7+)
+# Run the web app
 dx serve --platform web
 
 # Run as desktop app
 dx serve --platform desktop
 
-# Manually compile Tailwind CSS (for custom plugins or when auto-tailwind isn't used)
+# Manually compile Tailwind CSS (required — auto-tailwind can't scan .rs files)
 npm run build:css       # one-shot
-npm run watch:css       # watch mode
+npm run watch:css       # watch mode (run alongside dx serve)
 ```
 
 ## Architecture
@@ -30,16 +30,16 @@ This is a **Dioxus 0.7 fullstack web app** with the `router` feature. Routes are
 - `src/views/` — route-level components (Navbar layout, Todos page, Profile page)
 - `src/components/` — shared/reusable UI components (currently empty scaffold)
 - `assets/` — static assets served to the browser (`tailwind.css` is the compiled output)
-- `tailwind.css` (repo root) — Tailwind CSS v4 input file (`@import "tailwindcss"`), used as compilation source
+- `tailwind-input.css` (repo root) — Tailwind CSS v4 input file (`@import "tailwindcss"; @source "src/**/*.rs"`)
 
 ## Tailwind CSS
 
-Dioxus 0.7+ has **built-in Tailwind support**: `dx serve` detects `tailwind.css` in the project root and auto-compiles it to `assets/tailwind.css`. The README notes this works without manual setup.
+**Dioxus's built-in auto-Tailwind cannot scan `.rs` files**, so we use a manual npm-based pipeline instead. The source file is renamed to `tailwind-input.css` (not `tailwind.css`) to prevent Dioxus from auto-detecting and overwriting the compiled output.
 
-If custom Tailwind plugins are needed, the CLI approach applies:
-- Input: `tailwind.css` (root, `@import "tailwindcss"`)
+- Input: `tailwind-input.css` (root) — contains `@import "tailwindcss"` and `@source "src/**/*.rs"`
 - Output: `assets/tailwind.css` (loaded via `asset!("/assets/tailwind.css")` in `App`)
-- The compiled output is in `.gitignore`; the source is tracked
+- The compiled output is in `.gitignore`; the input source is tracked
+- Run `npm run watch:css` alongside `dx serve --platform web` for development
 
 ## Routing Pattern
 

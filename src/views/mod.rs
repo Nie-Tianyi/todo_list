@@ -16,3 +16,6 @@ pub use todos::Todos;
 
 mod profile;
 pub use profile::Profile;
+
+mod page_not_found;
+pub use page_not_found::PageNoteFound;

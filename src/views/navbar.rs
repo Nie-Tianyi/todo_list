@@ -10,7 +10,9 @@ pub fn Navbar() -> Element {
     info!("Loading Navbar");
 
     rsx! {
-        div { id: "navbar", class: "flex justify-center",
+        div {
+            id: "navbar",
+            class: "w-screen h-5 border-2 bg-blue-500 flex justify-between",
             Link { to: Route::Todos {}, "Todos" }
             Link { to: Route::Profile { id: 1 }, "Profile" }
         }
