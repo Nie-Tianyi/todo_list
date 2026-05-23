@@ -1,24 +1,37 @@
 use crate::Route;
 use dioxus::prelude::*;
-/// The Navbar component that will be rendered on all pages of our app since every page is under the layout.
-///
-///
-/// This layout component wraps the UI of [Route::Home] and [Route::Blog] in a common navbar. The contents of the Home and Blog
-/// routes will be rendered under the outlet inside this component
+
 #[component]
 pub fn Navbar() -> Element {
     info!("Loading Navbar");
 
     rsx! {
-        div {
-            id: "navbar",
-            class: "w-screen h-5 border-2 bg-blue-500 flex justify-between",
-            Link { to: Route::Todos {}, "Todos" }
-            Link { to: Route::Profile { id: 1 }, "Profile" }
+        nav {
+            class: "sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm",
+            div { class: "max-w-4xl mx-auto flex items-center justify-between px-6 py-3",
+                // Brand
+                Link {
+                    to: Route::Todos {},
+                    class: "text-lg font-bold text-gray-800 hover:text-blue-500 transition-colors duration-200",
+                    "Todo App"
+                }
+
+                // Nav links
+                div { class: "flex items-center gap-1",
+                    Link {
+                        to: Route::Todos {},
+                        class: "px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-200",
+                        "Todos"
+                    }
+                    Link {
+                        to: Route::Profile { id: 1 },
+                        class: "px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-200",
+                        "Profile"
+                    }
+                }
+            }
         }
 
-        // The `Outlet` component is used to render the next component inside the layout. In this case, it will render either
-        // the [`Home`] or [`Blog`] component depending on the current route.
         Outlet::<Route> {}
     }
 }

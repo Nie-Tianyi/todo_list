@@ -12,3 +12,4 @@
 # Node modules
 /node_modules
 .claude
+.playwright-mcp
