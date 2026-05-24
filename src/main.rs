@@ -8,6 +8,7 @@ use views::Profile;
 use views::Todos;
 
 mod components;
+mod backend;
 mod models;
 mod views;
 

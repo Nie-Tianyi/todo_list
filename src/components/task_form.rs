@@ -1,4 +1,5 @@
-use crate::models::{Priority, Task, TaskStatus};
+use crate::backend::create_task;
+use crate::models::{Priority, Task};
 use dioxus::prelude::*;
 
 #[component]
@@ -16,7 +17,9 @@ pub fn TaskForm(tasks: Signal<Vec<Task>>, is_open: Signal<bool>) -> Element {
     };
 
     if !is_open() {
-        return rsx! { div {} };
+        return rsx! {
+            div {}
+        };
     }
 
     rsx! {
@@ -56,11 +59,7 @@ pub fn TaskForm(tasks: Signal<Vec<Task>>, is_open: Signal<bool>) -> Element {
                     span { class: "text-xs text-gray-500", "Priority:" }
                     for p in [Priority::Low, Priority::Medium, Priority::High, Priority::Urgent] {
                         button {
-                            class: if priority() == p {
-                                "text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors {p.badge_classes()} ring-2 ring-offset-1 ring-blue-300"
-                            } else {
-                                "text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200"
-                            },
+                            class: if priority() == p { "text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors {p.badge_classes()} ring-2 ring-offset-1 ring-blue-300" } else { "text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200" },
                             onclick: move |_| priority.set(p.clone()),
                             "{p.label()}"
                         }
@@ -85,16 +84,15 @@ pub fn TaskForm(tasks: Signal<Vec<Task>>, is_open: Signal<bool>) -> Element {
                                 error.set(Some("Title is required".into()));
                                 return;
                             }
-                            let next_id = tasks().iter().map(|t| t.id).max().unwrap_or(0) + 1;
-                            tasks.write().push(Task {
-                                id: next_id,
-                                title: t,
-                                description: description().trim().to_string(),
-                                priority: priority(),
-                                status: TaskStatus::Todo,
-                                assignee: None,
-                                completed_by: None,
+                            let desc = description().trim().to_string();
+                            let pri = priority();
+
+                            spawn(async move {
+                                if let Ok(new_task) = create_task(t, desc, pri).await {
+                                    tasks.write().push(new_task);
+                                }
                             });
+
                             reset_form();
                             is_open.set(false);
                         },

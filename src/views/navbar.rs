@@ -3,11 +3,9 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn Navbar() -> Element {
-    info!("Loading Navbar");
 
     rsx! {
-        nav {
-            class: "sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm",
+        nav { class: "sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm",
             div { class: "max-w-4xl mx-auto flex items-center justify-between px-6 py-3",
                 // Brand
                 Link {

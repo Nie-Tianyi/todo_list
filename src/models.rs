@@ -94,6 +94,7 @@ pub struct Task {
     pub completed_by: Option<String>,
 }
 
+#[cfg(feature = "server")]
 pub fn default_tasks() -> Vec<Task> {
     vec![
         Task {
