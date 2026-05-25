@@ -1,4 +1,4 @@
-use crate::models::{Priority, Task};
+use crate::models::{LoginResponse, Priority, Task, User};
 #[cfg(feature = "server")]
 use crate::models::TaskStatus;
 use dioxus::prelude::*;
@@ -102,7 +102,68 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
         }
     }
 
+    // ── Users table ──────────────────────────────
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL
+        )",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
+    let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| map_err(e))?;
+
+    if user_count.0 == 0 {
+        info!("seeding default users");
+        let default_password = "password123";
+        let usernames = ["Alice", "Bob", "Charlie"];
+
+        for username in usernames {
+            let hash = hash_password(default_password);
+            sqlx::query("INSERT INTO users (username, password_hash) VALUES (?, ?)")
+                .bind(username)
+                .bind(&hash)
+                .execute(pool)
+                .await
+                .map_err(|e| map_err(e))?;
+        }
+    }
+
     Ok(())
+}
+
+#[cfg(feature = "server")]
+fn hash_password(password: &str) -> String {
+    use argon2::{
+        password_hash::{PasswordHasher, SaltString},
+        Argon2,
+    };
+    let salt = SaltString::generate(&mut rand::rngs::OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .expect("failed to hash password")
+        .to_string()
+}
+
+#[cfg(feature = "server")]
+fn verify_password(password: &str, hash: &str) -> bool {
+    use argon2::{
+        password_hash::{PasswordHash, PasswordVerifier},
+        Argon2,
+    };
+    let Ok(parsed) = PasswordHash::new(hash) else {
+        return false;
+    };
+    Argon2::default()
+        .verify_password(password.as_bytes(), &parsed)
+        .is_ok()
 }
 
 #[cfg(feature = "server")]
@@ -162,9 +223,9 @@ fn row_to_task(row: &SqliteRow) -> Task {
 
 // ── Server functions ──────────────────────────────
 
-#[get("/api/tasks")]
+#[get("/api/tasks", auth: crate::auth::AuthSession)]
 pub async fn get_tasks() -> Result<Vec<Task>, ServerFnError> {
-    info!("GET /api/tasks");
+    info!("GET /api/tasks user={}", auth.user.username);
     let pool = get_pool().await?;
     let rows = sqlx::query(
         "SELECT id, title, description, priority, status, assignee, completed_by FROM tasks ORDER BY id",
@@ -176,13 +237,13 @@ pub async fn get_tasks() -> Result<Vec<Task>, ServerFnError> {
     Ok(rows.iter().map(row_to_task).collect())
 }
 
-#[post("/api/tasks")]
+#[post("/api/tasks", auth: crate::auth::AuthSession)]
 pub async fn create_task(
     title: String,
     description: String,
     priority: Priority,
 ) -> Result<Task, ServerFnError> {
-    info!("POST /api/tasks title={title:?}");
+    info!("POST /api/tasks title={title:?} user={}", auth.user.username);
     let pool = get_pool().await?;
     let result = sqlx::query(
         "INSERT INTO tasks (title, description, priority, status) VALUES (?, ?, ?, 'Todo')",
@@ -205,9 +266,9 @@ pub async fn create_task(
     })
 }
 
-#[post("/api/tasks/save")]
+#[post("/api/tasks/save", auth: crate::auth::AuthSession)]
 pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
-    info!("POST /api/tasks/save id={}", task.id);
+    info!("POST /api/tasks/save id={} user={}", task.id, auth.user.username);
     let pool = get_pool().await?;
     sqlx::query(
         "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by)
@@ -232,4 +293,109 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
     .map_err(|e| map_err(e))?;
 
     Ok(())
+}
+
+#[post("/api/login")]
+pub async fn login(username: String, password: String) -> Result<LoginResponse, ServerFnError> {
+    info!("POST /api/login username={username:?}");
+    let pool = get_pool().await?;
+
+    let row: Option<(i32, String, String)> = sqlx::query_as(
+        "SELECT id, username, password_hash FROM users WHERE username = ?",
+    )
+    .bind(&username)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
+    let (id, name, hash) = row.ok_or_else(|| {
+        ServerFnError::ServerError {
+            message: "Invalid username or password".into(),
+            code: 401,
+            details: None,
+        }
+    })?;
+
+    if !verify_password(&password, &hash) {
+        return Err(ServerFnError::ServerError {
+            message: "Invalid username or password".into(),
+            code: 401,
+            details: None,
+        });
+    }
+
+    let user = User { id, username: name };
+    let token = crate::auth::create_token(&user)
+        .map_err(|e| ServerFnError::ServerError {
+            message: format!("Failed to create token: {e}"),
+            code: 500,
+            details: None,
+        })?;
+
+    Ok(LoginResponse { user, token })
+}
+
+#[post("/api/register")]
+pub async fn register(username: String, password: String) -> Result<LoginResponse, ServerFnError> {
+    info!("POST /api/register username={username:?}");
+    let pool = get_pool().await?;
+
+    let existing: Option<(i64,)> = sqlx::query_as(
+        "SELECT COUNT(*) FROM users WHERE username = ?",
+    )
+    .bind(&username)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
+    if let Some((count,)) = existing {
+        if count > 0 {
+            return Err(ServerFnError::ServerError {
+                message: "Username already taken".into(),
+                code: 409,
+                details: None,
+            });
+        }
+    }
+
+    if username.trim().is_empty() {
+        return Err(ServerFnError::ServerError {
+            message: "Username cannot be empty".into(),
+            code: 400,
+            details: None,
+        });
+    }
+
+    if password.len() < 6 {
+        return Err(ServerFnError::ServerError {
+            message: "Password must be at least 6 characters".into(),
+            code: 400,
+            details: None,
+        });
+    }
+
+    let hash = hash_password(&password);
+
+    let result = sqlx::query(
+        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+    )
+    .bind(&username)
+    .bind(&hash)
+    .execute(&pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
+    let user = User {
+        id: result.last_insert_rowid() as i32,
+        username,
+    };
+
+    let token = crate::auth::create_token(&user)
+        .map_err(|e| ServerFnError::ServerError {
+            message: format!("Failed to create token: {e}"),
+            code: 500,
+            details: None,
+        })?;
+
+    Ok(LoginResponse { user, token })
 }

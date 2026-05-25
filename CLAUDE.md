@@ -263,3 +263,101 @@ The initial UI rendered by the component on the client must be identical to the 
 
 * Use the `use_server_future` hook instead of `use_resource`. It runs the future on the server, serializes the result, and sends it to the client, ensuring the client has the data immediately for its first render.
 * Any code that relies on browser-specific APIs (like accessing `localStorage`) must be run *after* hydration. Place this code inside a `use_effect` hook.
+
+---
+
+# Project: Todo List
+
+## Architecture
+
+Fullstack Dioxus 0.7 app with SQLite storage, JWT authentication, and a Kanban board UI styled with Tailwind CSS.
+
+- **Client:** WASM (web feature), renders Kanban board, handles user interactions
+- **Server:** Axum (server feature), serves API endpoints and static assets
+- **Database:** SQLite via `sqlx 0.8`, file `todo_list.db` at project root
+- **Auth:** Argon2 password hashing + JWT bearer tokens
+
+## Dependencies
+
+```toml
+dioxus = { version = "0.7.1", features = ["router", "fullstack"] }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"], optional = true }
+argon2 = "0.5"
+jsonwebtoken = "9"
+axum = { version = "0.8", optional = true }
+rand = "0.8"
+http = "1"
+```
+
+## File Structure
+
+```
+src/
+├── main.rs          # Route enum, App component, AuthContext provider
+├── models.rs        # Task, TaskStatus, Priority, User, LoginResponse
+├── backend.rs       # Server functions (CRUD + auth), SQLite migrations
+├── auth.rs          # AuthSession extractor, AuthContext, JWT logic
+├── views/
+│   ├── mod.rs
+│   ├── navbar.rs        # Layout: nav bar + Outlet, reads AuthContext
+│   ├── todos.rs         # Main Kanban board page (protected)
+│   ├── profile.rs       # User profile page (protected)
+│   ├── login.rs         # Login form
+│   ├── register.rs      # Registration form
+│   ├── require_auth.rs  # Route guard layout
+│   └── page_not_found.rs
+└── components/
+    ├── mod.rs
+    ├── kanban_column.rs # Single status column
+    ├── task_card.rs     # Task card with claim/move actions
+    └── task_form.rs     # New-task creation form
+```
+
+## Routes
+
+```rust
+#[layout(Navbar)]
+    #[route("/login")]     Login {}          // public
+    #[route("/register")]  Register {}       // public
+    #[layout(RequireAuth)]
+        #[route("/")]      Todos {}          // protected
+        #[route("/profile")] Profile {}      // protected
+#[route("/:..segments")]    PageNoteFound {} // 404
+```
+
+## Authentication
+
+### Server-side
+
+- Passwords hashed with **Argon2id** (random salt per password)
+- **JWT** tokens (HS256), 24h expiry, stored in `Authorization: Bearer <token>` header
+- `AuthSession` struct implements `FromRequestParts<()>` — reads and validates JWT from request headers
+- Server functions declare the extractor in the attribute: `#[get("/api/tasks", auth: crate::auth::AuthSession)]`
+- The `auth` variable is injected by the macro and available in the function body
+
+### Client-side
+
+- `AuthContext(Signal<Option<AuthState>>)` — provided via `use_context_provider` in `App`
+- `AuthState { user: User, token: String }` — stores user info + JWT
+- `auth.login(state)` — calls `dioxus::fullstack::set_request_headers()` to attach bearer token to all subsequent server function requests
+- `auth.logout()` — calls `dioxus::fullstack::clear_request_headers()`
+- `RequireAuth` layout component — reads `AuthContext`, redirects to `/login` via `use_effect` + `navigator.push()` if not authenticated
+
+### Server functions
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `POST /api/login` | none | Validate credentials, return JWT |
+| `POST /api/register` | none | Create user (checks duplicate), return JWT |
+| `GET /api/tasks` | AuthSession | List all tasks |
+| `POST /api/tasks` | AuthSession | Create a task |
+| `POST /api/tasks/save` | AuthSession | Upsert a task |
+
+## Key Patterns
+
+- **No `cx` / `Scope` / `use_state`** — Dioxus 0.7 uses `use_signal`, `use_resource`, `use_effect`, `use_context`
+- **Prop drilling** of `Signal<T>` to child components (not context for everything)
+- **Event handler closures** cannot be shared across different event types — inline the logic or use `spawn`
+- **Server-only code** gated with `#[cfg(feature = "server")]` in `backend.rs` and `auth.rs`
+- **Server-only extractors** declared in attribute macros (not function signatures): `#[post("/path", extractor: Type)]`
+- **Database** auto-migrates via `run_migrations()` on first pool creation; seeds default tasks + 3 users (Alice/Bob/Charlie, password: `password123`)
