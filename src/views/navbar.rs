@@ -29,14 +29,18 @@ pub fn Navbar() -> Element {
                             "Gantt"
                         }
                         Link {
-                            to: Route::Profile {},
+                            to: Route::Team {},
                             class: "px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-200",
-                            "Profile"
+                            "Team"
                         }
                     }
 
                     if let Some(user) = auth.user() {
-                        span { class: "text-sm text-gray-500 mx-2",
+                        button {
+                            class: "px-4 py-2 text-sm text-gray-500 mx-2 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-200 cursor-pointer",
+                            onclick: move |_| {
+                                navigator.push(Route::Profile {});
+                            },
                             "{user.username}"
                         }
                         button {
