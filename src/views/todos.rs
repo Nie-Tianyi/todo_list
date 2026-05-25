@@ -10,12 +10,8 @@ pub fn Todos() -> Element {
     let mut tasks = use_signal(Vec::new);
     let mut form_open = use_signal(|| false);
 
-    let tasks_data = use_resource(move || async move {
-        get_tasks().await.unwrap_or_default()
-    });
-
-    use_effect(move || {
-        tasks.set(tasks_data().unwrap_or_default());
+    use_future(move || async move {
+        tasks.set(get_tasks().await.unwrap_or_default());
     });
 
     rsx! {
@@ -27,7 +23,11 @@ pub fn Todos() -> Element {
                         class: "text-sm px-4 py-2 rounded-lg font-medium bg-blue-500 text-white
                                 hover:bg-blue-600 transition-colors shadow-sm",
                         onclick: move |_| form_open.set(!form_open()),
-                        if form_open() { "Close" } else { "+ New Task" }
+                        if form_open() {
+                            "Close"
+                        } else {
+                            "+ New Task"
+                        }
                     }
                 }
             }
@@ -36,11 +36,7 @@ pub fn Todos() -> Element {
 
             div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4",
                 for status in TaskStatus::all() {
-                    KanbanColumn {
-                        key: "{status.label()}",
-                        status,
-                        tasks,
-                    }
+                    KanbanColumn { key: "{status.label()}", status, tasks }
                 }
             }
         }
