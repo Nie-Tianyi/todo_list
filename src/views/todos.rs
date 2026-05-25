@@ -1,9 +1,9 @@
+use crate::backend::get_tasks;
 use crate::components::kanban_column::KanbanColumn;
 use crate::components::task_form::TaskForm;
-use crate::models::TaskStatus;
+use crate::models::{Task, TaskStatus};
 use dioxus::prelude::*;
-
-use crate::backend::get_tasks;
+use futures_util::StreamExt;
 
 #[component]
 pub fn Todos() -> Element {
@@ -12,6 +12,13 @@ pub fn Todos() -> Element {
 
     use_future(move || async move {
         tasks.set(get_tasks().await.unwrap_or_default());
+    });
+
+    // Persistent coroutine for backend saves — tied to Todos' scope, never unmounted.
+    let _save_tx = use_coroutine(|mut rx: UnboundedReceiver<Task>| async move {
+        while let Some(task) = rx.next().await {
+            let _ = crate::backend::save_task(task).await;
+        }
     });
 
     rsx! {
@@ -36,7 +43,11 @@ pub fn Todos() -> Element {
 
             div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4",
                 for status in TaskStatus::all() {
-                    KanbanColumn { key: "{status.label()}", status, tasks }
+                    KanbanColumn {
+                        key: "{status.label()}",
+                        status,
+                        tasks,
+                    }
                 }
             }
         }

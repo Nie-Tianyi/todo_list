@@ -6,7 +6,7 @@ pub fn KanbanColumn(
     status: TaskStatus,
     tasks: Signal<Vec<crate::models::Task>>,
 ) -> Element {
-    let filtered: Vec<crate::models::Task> = tasks()
+    let filtered: Vec<_> = tasks()
         .into_iter()
         .filter(|t| t.status == status)
         .collect();

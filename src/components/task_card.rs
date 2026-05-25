@@ -1,20 +1,14 @@
 use crate::auth::AuthContext;
-use crate::backend::save_task;
 use crate::models::{Task, TaskStatus};
 use dioxus::prelude::*;
 
 #[component]
-pub fn TaskCard(
-    task: Task,
-    tasks: Signal<Vec<Task>>,
-) -> Element {
+pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
+    let save_tx = use_coroutine_handle::<Task>();
     let auth = use_context::<AuthContext>();
     let task_id = task.id;
     let has_previous = task.status.previous().is_some();
     let has_next = task.status.next().is_some();
-    let task_claim = task.clone();
-    let task_prev = task.clone();
-    let task_next = task.clone();
 
     rsx! {
         div { class: "bg-white rounded-lg border border-gray-100 shadow-sm p-3 hover:shadow-md transition-shadow duration-200",
@@ -54,18 +48,19 @@ pub fn TaskCard(
                                 hover:bg-blue-100 transition-colors",
                         onclick: move |_| {
                             let user = auth.username().unwrap_or_default();
-                            let mut updated = task_claim.clone();
+                            let mut updated = tasks
+                                .read()
+                                .iter()
+                                .find(|t| t.id == task_id)
+                                .cloned()
+                                .unwrap();
                             updated.assignee = Some(user);
                             tasks
                                 .write()
                                 .iter_mut()
                                 .find(|t| t.id == task_id)
-                                .map(|t| {
-                                    t.assignee = updated.assignee.clone();
-                                });
-                            spawn(async move {
-                                let _ = save_task(updated).await;
-                            });
+                                .map(|t| t.assignee = updated.assignee.clone());
+                            save_tx.send(updated);
                         },
                         "Claim"
                     }
@@ -77,7 +72,12 @@ pub fn TaskCard(
                             class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-500
                                     hover:bg-gray-200 transition-colors",
                             onclick: move |_| {
-                                let mut updated = task_prev.clone();
+                                let mut updated = tasks
+                                    .read()
+                                    .iter()
+                                    .find(|t| t.id == task_id)
+                                    .cloned()
+                                    .unwrap();
                                 if let Some(prev) = updated.status.previous() {
                                     updated.status = prev;
                                 }
@@ -90,9 +90,7 @@ pub fn TaskCard(
                                             t.status = prev;
                                         }
                                     });
-                                spawn(async move {
-                                    let _ = save_task(updated).await;
-                                });
+                                save_tx.send(updated);
                             },
                             "\u{25C0}"
                         }
@@ -104,7 +102,12 @@ pub fn TaskCard(
                                     hover:bg-gray-200 transition-colors",
                             onclick: move |_| {
                                 let user = auth.username().unwrap_or_default();
-                                let mut updated = task_next.clone();
+                                let mut updated = tasks
+                                    .read()
+                                    .iter()
+                                    .find(|t| t.id == task_id)
+                                    .cloned()
+                                    .unwrap();
                                 if let Some(nxt) = updated.status.next() {
                                     if nxt == TaskStatus::Done {
                                         updated.completed_by = Some(user);
@@ -123,9 +126,7 @@ pub fn TaskCard(
                                             t.status = nxt;
                                         }
                                     });
-                                spawn(async move {
-                                    let _ = save_task(updated).await;
-                                });
+                                save_tx.send(updated);
                             },
                             "\u{25B6}"
                         }

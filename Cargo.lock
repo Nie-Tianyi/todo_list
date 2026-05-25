@@ -6046,6 +6046,7 @@ dependencies = [
  "axum",
  "chrono",
  "dioxus",
+ "futures-util",
  "http",
  "jsonwebtoken",
  "rand 0.8.6",
