@@ -2,143 +2,22 @@ use crate::models::User;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "server")]
-use axum::extract::FromRequestParts;
-
-// ── JWT secret ───────────────────────────────────
-
-#[cfg(feature = "server")]
-const JWT_SECRET: &[u8] = b"todo-list-jwt-secret-change-in-production";
-
 // ── JWT Claims ───────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)] // constructed only in server.rs
 pub struct Claims {
     pub sub: i32,
     pub username: String,
     pub exp: usize,
 }
 
-// ── AuthSession (server-only extractor) ──────────
+// ── AuthSession (extractor target) ──────────────
 
-/// Extracted from `Authorization: Bearer <token>` header on server functions.
-/// The client never sends this — Dioxus fullstack hoists it as a server-only argument.
+/// The `FromRequestParts` implementation is in `server.rs`.
+#[allow(dead_code)] // constructed only in server.rs
 pub struct AuthSession {
     pub user: User,
-}
-
-#[cfg(feature = "server")]
-#[derive(Debug)]
-pub struct AuthError {
-    status: http::StatusCode,
-    message: String,
-}
-
-#[cfg(feature = "server")]
-impl AuthError {
-    fn new(status: http::StatusCode, message: impl Into<String>) -> Self {
-        Self {
-            status,
-            message: message.into(),
-        }
-    }
-}
-
-#[cfg(feature = "server")]
-impl std::fmt::Display for AuthError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-#[cfg(feature = "server")]
-impl std::error::Error for AuthError {}
-
-#[cfg(feature = "server")]
-impl axum::response::IntoResponse for AuthError {
-    fn into_response(self) -> axum::response::Response {
-        (self.status, self.message).into_response()
-    }
-}
-
-#[cfg(feature = "server")]
-impl<S: Send + Sync> FromRequestParts<S> for AuthSession {
-    type Rejection = AuthError;
-
-    async fn from_request_parts(
-        parts: &mut http::request::Parts,
-        _state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        let auth_header = parts
-            .headers
-            .get(http::header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| {
-                AuthError::new(
-                    http::StatusCode::UNAUTHORIZED,
-                    "Missing Authorization header",
-                )
-            })?;
-
-        let token = auth_header
-            .strip_prefix("Bearer ")
-            .ok_or_else(|| {
-                AuthError::new(
-                    http::StatusCode::UNAUTHORIZED,
-                    "Invalid Authorization format",
-                )
-            })?;
-
-        let claims = validate_token(token).map_err(|e| {
-            AuthError::new(
-                http::StatusCode::UNAUTHORIZED,
-                format!("Invalid token: {e}"),
-            )
-        })?;
-
-        Ok(AuthSession {
-            user: User {
-                id: claims.sub,
-                username: claims.username,
-                gender: None,
-                age: None,
-                job_title: None,
-            },
-        })
-    }
-}
-
-// ── JWT helpers (server-only) ────────────────────
-
-#[cfg(feature = "server")]
-pub fn create_token(user: &User) -> Result<String, jsonwebtoken::errors::Error> {
-    let exp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as usize
-        + 86400; // 24 hours
-
-    let claims = Claims {
-        sub: user.id,
-        username: user.username.clone(),
-        exp,
-    };
-
-    jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(JWT_SECRET),
-    )
-}
-
-#[cfg(feature = "server")]
-pub fn validate_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    jsonwebtoken::decode::<Claims>(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(JWT_SECRET),
-        &jsonwebtoken::Validation::default(),
-    )
-    .map(|data| data.claims)
 }
 
 // ── Client-side auth state ───────────────────────

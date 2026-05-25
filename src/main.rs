@@ -11,9 +11,11 @@ use views::RequireAuth;
 use views::Todos;
 
 mod auth;
-mod components;
 mod backend;
+mod components;
 mod models;
+#[cfg(feature = "server")]
+mod server;
 mod views;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
