@@ -287,6 +287,7 @@ jsonwebtoken = "9"
 axum = { version = "0.8", optional = true }
 rand = "0.8"
 http = "1"
+chrono = { version = "0.4", features = ["serde"] }
 ```
 
 ## File Structure
@@ -301,16 +302,17 @@ src/
 │   ├── mod.rs
 │   ├── navbar.rs        # Layout: nav bar + Outlet, reads AuthContext
 │   ├── todos.rs         # Main Kanban board page (protected)
-│   ├── profile.rs       # User profile page (protected)
+│   ├── gantt.rs         # Gantt chart page (protected)
+│   ├── profile.rs       # User profile page — editable form (protected)
 │   ├── login.rs         # Login form
-│   ├── register.rs      # Registration form
+│   ├── register.rs      # Registration form with optional profile fields
 │   ├── require_auth.rs  # Route guard layout
 │   └── page_not_found.rs
 └── components/
     ├── mod.rs
     ├── kanban_column.rs # Single status column
     ├── task_card.rs     # Task card with claim/move actions
-    └── task_form.rs     # New-task creation form
+    └── task_form.rs     # New-task creation form (title, desc, priority, dates)
 ```
 
 ## Routes
@@ -320,8 +322,9 @@ src/
     #[route("/login")]     Login {}          // public
     #[route("/register")]  Register {}       // public
     #[layout(RequireAuth)]
-        #[route("/")]      Todos {}          // protected
-        #[route("/profile")] Profile {}      // protected
+        #[route("/")]      Todos {}          // protected — Kanban board
+        #[route("/gantt")] Gantt {}          // protected — Gantt chart
+        #[route("/profile")] Profile {}      // protected — editable profile
 #[route("/:..segments")]    PageNoteFound {} // 404
 ```
 
@@ -340,6 +343,7 @@ src/
 - `AuthContext(Signal<Option<AuthState>>)` — provided via `use_context_provider` in `App`
 - `AuthState { user: User, token: String }` — stores user info + JWT
 - `auth.login(state)` — calls `dioxus::fullstack::set_request_headers()` to attach bearer token to all subsequent server function requests
+- `auth.update_user(user)` — replaces just the User in the current AuthState (used after profile updates, preserves token)
 - `auth.logout()` — calls `dioxus::fullstack::clear_request_headers()`
 - `RequireAuth` layout component — reads `AuthContext`, redirects to `/login` via `use_effect` + `navigator.push()` if not authenticated
 
@@ -347,11 +351,40 @@ src/
 
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
-| `POST /api/login` | none | Validate credentials, return JWT |
-| `POST /api/register` | none | Create user (checks duplicate), return JWT |
-| `GET /api/tasks` | AuthSession | List all tasks |
-| `POST /api/tasks` | AuthSession | Create a task |
-| `POST /api/tasks/save` | AuthSession | Upsert a task |
+| `POST /api/login` | none | Validate credentials, return JWT + User (with profile fields) |
+| `POST /api/register` | none | Create user with optional profile fields (gender, age, job_title), return JWT |
+| `GET /api/tasks` | AuthSession | List all tasks (with start_date, due_date) |
+| `POST /api/tasks` | AuthSession | Create a task with optional start_date and due_date |
+| `POST /api/tasks/save` | AuthSession | Upsert a task (including date fields) |
+| `POST /api/profile/update` | AuthSession | Update own profile (gender, age, job_title) |
+
+## Data Models
+
+### User
+```rust
+pub struct User {
+    pub id: i32,
+    pub username: String,
+    pub gender: Option<String>,     // "Male" | "Female" | "Other" | None
+    pub age: Option<i32>,
+    pub job_title: Option<String>,
+}
+```
+
+### Task
+```rust
+pub struct Task {
+    pub id: u32,
+    pub title: String,
+    pub description: String,
+    pub priority: Priority,         // Low | Medium | High | Urgent
+    pub status: TaskStatus,         // Todo | InProgress | InReview | Done
+    pub assignee: Option<String>,
+    pub completed_by: Option<String>,
+    pub start_date: Option<NaiveDate>,  // chrono::NaiveDate, serialized as "YYYY-MM-DD"
+    pub due_date: Option<NaiveDate>,
+}
+```
 
 ## Key Patterns
 
@@ -360,4 +393,6 @@ src/
 - **Event handler closures** cannot be shared across different event types — inline the logic or use `spawn`
 - **Server-only code** gated with `#[cfg(feature = "server")]` in `backend.rs` and `auth.rs`
 - **Server-only extractors** declared in attribute macros (not function signatures): `#[post("/path", extractor: Type)]`
-- **Database** auto-migrates via `run_migrations()` on first pool creation; seeds default tasks + 3 users (Alice/Bob/Charlie, password: `password123`)
+- **Dates** use `chrono::NaiveDate` with serde for JSON roundtrip. SQLite stores dates as TEXT in `YYYY-MM-%D` format. Parsed in `row_to_task()` via `NaiveDate::parse_from_str`.
+- **Migrations** are additive (ALTER TABLE), silently ignoring "duplicate column" errors. A backfill step updates existing seed tasks with default dates.
+- **Database** auto-migrates via `run_migrations()` on first pool creation; seeds 6 tasks (with dates starting 2026-06-01) + 3 users (Alice/Bob/Charlie, password: `password123`)

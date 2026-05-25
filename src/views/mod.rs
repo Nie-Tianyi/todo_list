@@ -26,5 +26,8 @@ pub use login::Login;
 mod register;
 pub use register::Register;
 
+mod gantt;
+pub use gantt::Gantt;
+
 mod require_auth;
 pub use require_auth::RequireAuth;

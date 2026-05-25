@@ -1,6 +1,7 @@
 use crate::models::{LoginResponse, Priority, Task, User};
 #[cfg(feature = "server")]
 use crate::models::TaskStatus;
+use chrono::NaiveDate;
 use dioxus::prelude::*;
 
 #[cfg(feature = "server")]
@@ -77,6 +78,14 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
     .await
     .map_err(|e| map_err(e))?;
 
+    // Gantt date columns — add if missing
+    let _ = sqlx::query("ALTER TABLE tasks ADD COLUMN start_date TEXT")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE tasks ADD COLUMN due_date TEXT")
+        .execute(pool)
+        .await;
+
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tasks")
         .fetch_one(pool)
         .await
@@ -86,8 +95,8 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
         info!("seeding {} default tasks", crate::models::default_tasks().len());
         for task in crate::models::default_tasks() {
             sqlx::query(
-                "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by, start_date, due_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .bind(task.id as i64)
             .bind(&task.title)
@@ -96,6 +105,31 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
             .bind(status_to_str(&task.status))
             .bind(&task.assignee)
             .bind(&task.completed_by)
+            .bind(task.start_date.map(|d| d.format("%Y-%m-%d").to_string()))
+            .bind(task.due_date.map(|d| d.format("%Y-%m-%d").to_string()))
+            .execute(pool)
+            .await
+            .map_err(|e| map_err(e))?;
+        }
+    }
+
+    // Backfill dates on existing tasks that lack them (pre-Gantt migration)
+    let null_dates: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM tasks WHERE start_date IS NULL OR due_date IS NULL",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
+    if null_dates.0 > 0 {
+        info!("backfilling dates on {n} existing tasks", n = null_dates.0);
+        for task in crate::models::default_tasks() {
+            sqlx::query(
+                "UPDATE tasks SET start_date = ?, due_date = ? WHERE id = ? AND start_date IS NULL",
+            )
+            .bind(task.start_date.map(|d| d.format("%Y-%m-%d").to_string()))
+            .bind(task.due_date.map(|d| d.format("%Y-%m-%d").to_string()))
+            .bind(task.id as i64)
             .execute(pool)
             .await
             .map_err(|e| map_err(e))?;
@@ -229,6 +263,12 @@ fn row_to_task(row: &SqliteRow) -> Task {
         status: str_to_status(&row.get::<String, _>("status")),
         assignee: row.get("assignee"),
         completed_by: row.get("completed_by"),
+        start_date: row
+            .get::<Option<String>, _>("start_date")
+            .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+        due_date: row
+            .get::<Option<String>, _>("due_date")
+            .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
     }
 }
 
@@ -239,7 +279,7 @@ pub async fn get_tasks() -> Result<Vec<Task>, ServerFnError> {
     info!("GET /api/tasks user={}", auth.user.username);
     let pool = get_pool().await?;
     let rows = sqlx::query(
-        "SELECT id, title, description, priority, status, assignee, completed_by FROM tasks ORDER BY id",
+        "SELECT id, title, description, priority, status, assignee, completed_by, start_date, due_date FROM tasks ORDER BY id",
     )
     .fetch_all(&pool)
     .await
@@ -253,15 +293,19 @@ pub async fn create_task(
     title: String,
     description: String,
     priority: Priority,
+    start_date: Option<NaiveDate>,
+    due_date: Option<NaiveDate>,
 ) -> Result<Task, ServerFnError> {
     info!("POST /api/tasks title={title:?} user={}", auth.user.username);
     let pool = get_pool().await?;
     let result = sqlx::query(
-        "INSERT INTO tasks (title, description, priority, status) VALUES (?, ?, ?, 'Todo')",
+        "INSERT INTO tasks (title, description, priority, status, start_date, due_date) VALUES (?, ?, ?, 'Todo', ?, ?)",
     )
     .bind(&title)
     .bind(&description)
     .bind(priority_to_str(&priority))
+    .bind(start_date.map(|d| d.format("%Y-%m-%d").to_string()))
+    .bind(due_date.map(|d| d.format("%Y-%m-%d").to_string()))
     .execute(&pool)
     .await
     .map_err(|e| map_err(e))?;
@@ -274,6 +318,8 @@ pub async fn create_task(
         status: TaskStatus::Todo,
         assignee: None,
         completed_by: None,
+        start_date,
+        due_date,
     })
 }
 
@@ -282,15 +328,17 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
     info!("POST /api/tasks/save id={} user={}", task.id, auth.user.username);
     let pool = get_pool().await?;
     sqlx::query(
-        "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by, start_date, due_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
              title = excluded.title,
              description = excluded.description,
              priority = excluded.priority,
              status = excluded.status,
              assignee = excluded.assignee,
-             completed_by = excluded.completed_by",
+             completed_by = excluded.completed_by,
+             start_date = excluded.start_date,
+             due_date = excluded.due_date",
     )
     .bind(task.id as i64)
     .bind(&task.title)
@@ -299,6 +347,8 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
     .bind(status_to_str(&task.status))
     .bind(&task.assignee)
     .bind(&task.completed_by)
+    .bind(task.start_date.map(|d| d.format("%Y-%m-%d").to_string()))
+    .bind(task.due_date.map(|d| d.format("%Y-%m-%d").to_string()))
     .execute(&pool)
     .await
     .map_err(|e| map_err(e))?;

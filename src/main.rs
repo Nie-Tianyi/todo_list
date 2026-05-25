@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
 use auth::AuthContext;
+use views::Gantt;
 use views::Login;
 use views::Navbar;
 use views::PageNoteFound;
@@ -26,6 +27,8 @@ enum Route {
         #[layout(RequireAuth)]
             #[route("/")]
             Todos {},
+            #[route("/gantt")]
+            Gantt {},
             #[route("/profile")]
             Profile {},
     #[route("/:..segments")]

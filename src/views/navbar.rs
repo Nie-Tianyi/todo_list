@@ -24,6 +24,11 @@ pub fn Navbar() -> Element {
                             "Todos"
                         }
                         Link {
+                            to: Route::Gantt {},
+                            class: "px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-200",
+                            "Gantt"
+                        }
+                        Link {
                             to: Route::Profile {},
                             class: "px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-200",
                             "Profile"

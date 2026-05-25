@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,10 +108,14 @@ pub struct Task {
     pub status: TaskStatus,
     pub assignee: Option<String>,
     pub completed_by: Option<String>,
+    pub start_date: Option<NaiveDate>,
+    pub due_date: Option<NaiveDate>,
 }
 
 #[cfg(feature = "server")]
 pub fn default_tasks() -> Vec<Task> {
+    let base = NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+    let d = |offset: i64| base.checked_add_signed(chrono::Duration::days(offset));
     vec![
         Task {
             id: 1,
@@ -120,6 +125,8 @@ pub fn default_tasks() -> Vec<Task> {
             status: TaskStatus::Done,
             assignee: Some("Alice".into()),
             completed_by: Some("Alice".into()),
+            start_date: d(0),
+            due_date: d(4),
         },
         Task {
             id: 2,
@@ -129,6 +136,8 @@ pub fn default_tasks() -> Vec<Task> {
             status: TaskStatus::InProgress,
             assignee: Some("Bob".into()),
             completed_by: None,
+            start_date: d(2),
+            due_date: d(9),
         },
         Task {
             id: 3,
@@ -138,6 +147,8 @@ pub fn default_tasks() -> Vec<Task> {
             status: TaskStatus::Todo,
             assignee: None,
             completed_by: None,
+            start_date: d(7),
+            due_date: d(15),
         },
         Task {
             id: 4,
@@ -147,6 +158,8 @@ pub fn default_tasks() -> Vec<Task> {
             status: TaskStatus::InReview,
             assignee: Some("Charlie".into()),
             completed_by: None,
+            start_date: d(11),
+            due_date: d(18),
         },
         Task {
             id: 5,
@@ -156,6 +169,8 @@ pub fn default_tasks() -> Vec<Task> {
             status: TaskStatus::Todo,
             assignee: None,
             completed_by: None,
+            start_date: d(14),
+            due_date: d(22),
         },
         Task {
             id: 6,
@@ -165,6 +180,8 @@ pub fn default_tasks() -> Vec<Task> {
             status: TaskStatus::Todo,
             assignee: Some("Alice".into()),
             completed_by: None,
+            start_date: d(17),
+            due_date: d(19),
         },
     ]
 }

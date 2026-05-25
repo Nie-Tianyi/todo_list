@@ -1,5 +1,6 @@
 use crate::backend::create_task;
 use crate::models::{Priority, Task};
+use chrono::NaiveDate;
 use dioxus::prelude::*;
 
 #[component]
@@ -7,12 +8,16 @@ pub fn TaskForm(tasks: Signal<Vec<Task>>, is_open: Signal<bool>) -> Element {
     let mut title = use_signal(String::new);
     let mut description = use_signal(String::new);
     let mut priority = use_signal(|| Priority::Medium);
+    let mut start_date = use_signal(String::new);
+    let mut due_date = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
 
     let mut reset_form = move || {
         title.set(String::new());
         description.set(String::new());
         priority.set(Priority::Medium);
+        start_date.set(String::new());
+        due_date.set(String::new());
         error.set(None);
     };
 
@@ -53,6 +58,32 @@ pub fn TaskForm(tasks: Signal<Vec<Task>>, is_open: Signal<bool>) -> Element {
                 }
             }
 
+            // Date fields
+            div { class: "mb-3 flex gap-3",
+                div { class: "flex-1",
+                    label { class: "block text-xs text-gray-500 mb-1", r#for: "start_date", "Start Date" }
+                    input {
+                        id: "start_date",
+                        r#type: "date",
+                        class: "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm
+                                focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300",
+                        value: "{start_date}",
+                        oninput: move |e| { start_date.set(e.value()); error.set(None); },
+                    }
+                }
+                div { class: "flex-1",
+                    label { class: "block text-xs text-gray-500 mb-1", r#for: "due_date", "Due Date" }
+                    input {
+                        id: "due_date",
+                        r#type: "date",
+                        class: "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm
+                                focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300",
+                        value: "{due_date}",
+                        oninput: move |e| { due_date.set(e.value()); error.set(None); },
+                    }
+                }
+            }
+
             // Priority selector + submit
             div { class: "flex items-center justify-between",
                 div { class: "flex items-center gap-1.5",
@@ -86,9 +117,21 @@ pub fn TaskForm(tasks: Signal<Vec<Task>>, is_open: Signal<bool>) -> Element {
                             }
                             let desc = description().trim().to_string();
                             let pri = priority();
+                            let sd = start_date().trim().to_string();
+                            let dd = due_date().trim().to_string();
+                            let parsed_start = if sd.is_empty() {
+                                None
+                            } else {
+                                NaiveDate::parse_from_str(&sd, "%Y-%m-%d").ok()
+                            };
+                            let parsed_due = if dd.is_empty() {
+                                None
+                            } else {
+                                NaiveDate::parse_from_str(&dd, "%Y-%m-%d").ok()
+                            };
 
                             spawn(async move {
-                                if let Ok(new_task) = create_task(t, desc, pri).await {
+                                if let Ok(new_task) = create_task(t, desc, pri, parsed_start, parsed_due).await {
                                     tasks.write().push(new_task);
                                 }
                             });
