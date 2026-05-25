@@ -8,6 +8,9 @@ pub fn Register() -> Element {
     let mut username = use_signal(String::new);
     let mut password = use_signal(String::new);
     let mut confirm = use_signal(String::new);
+    let mut gender = use_signal(String::new);
+    let mut age = use_signal(String::new);
+    let mut job_title = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut loading = use_signal(|| false);
     let auth = use_context::<AuthContext>();
@@ -117,8 +120,11 @@ pub fn Register() -> Element {
                                     }
                                     loading.set(true);
                                     error.set(None);
+                                    let g = if gender().trim().is_empty() { None } else { Some(gender().trim().to_string()) };
+                                    let a = age().trim().parse::<i32>().ok();
+                                    let jt = if job_title().trim().is_empty() { None } else { Some(job_title().trim().to_string()) };
                                     spawn(async move {
-                                        match register(u, p).await {
+                                        match register(u, p, g, a, jt).await {
                                             Ok(resp) => {
                                                 auth.login(crate::auth::AuthState {
                                                     user: resp.user,
@@ -134,6 +140,65 @@ pub fn Register() -> Element {
                                     });
                                 }
                             },
+                        }
+                    }
+
+                    // ── Optional profile fields ─────────────────
+                    div { class: "mb-4",
+                        label {
+                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            r#for: "gender",
+                            "Gender (optional)"
+                        }
+                        select {
+                            id: "gender",
+                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                    transition-shadow",
+                            value: "{gender}",
+                            oninput: move |e| { gender.set(e.value()); },
+                            option { value: "", "Prefer not to say" }
+                            option { value: "Male", "Male" }
+                            option { value: "Female", "Female" }
+                            option { value: "Other", "Other" }
+                        }
+                    }
+
+                    div { class: "mb-4",
+                        label {
+                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            r#for: "age",
+                            "Age (optional)"
+                        }
+                        input {
+                            id: "age",
+                            r#type: "number",
+                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                    transition-shadow",
+                            placeholder: "Enter your age",
+                            min: "0",
+                            max: "150",
+                            value: "{age}",
+                            oninput: move |e| { age.set(e.value()); },
+                        }
+                    }
+
+                    div { class: "mb-6",
+                        label {
+                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            r#for: "job_title",
+                            "Job Title (optional)"
+                        }
+                        input {
+                            id: "job_title",
+                            r#type: "text",
+                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                    transition-shadow",
+                            placeholder: "e.g. Software Engineer",
+                            value: "{job_title}",
+                            oninput: move |e| { job_title.set(e.value()); },
                         }
                     }
 
@@ -160,8 +225,11 @@ pub fn Register() -> Element {
                             }
                             loading.set(true);
                             error.set(None);
+                            let g = if gender().trim().is_empty() { None } else { Some(gender().trim().to_string()) };
+                            let a = age().trim().parse::<i32>().ok();
+                            let jt = if job_title().trim().is_empty() { None } else { Some(job_title().trim().to_string()) };
                             spawn(async move {
-                                match register(u, p).await {
+                                match register(u, p, g, a, jt).await {
                                     Ok(resp) => {
                                         auth.login(crate::auth::AuthState {
                                             user: resp.user,

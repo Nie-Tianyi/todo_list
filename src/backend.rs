@@ -115,6 +115,17 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
     .await
     .map_err(|e| map_err(e))?;
 
+    // Profile columns — add if missing (silently ignore "duplicate column" errors)
+    let _ = sqlx::query("ALTER TABLE users ADD COLUMN gender TEXT")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE users ADD COLUMN age INTEGER")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE users ADD COLUMN job_title TEXT")
+        .execute(pool)
+        .await;
+
     let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
         .fetch_one(pool)
         .await
@@ -300,15 +311,15 @@ pub async fn login(username: String, password: String) -> Result<LoginResponse, 
     info!("POST /api/login username={username:?}");
     let pool = get_pool().await?;
 
-    let row: Option<(i32, String, String)> = sqlx::query_as(
-        "SELECT id, username, password_hash FROM users WHERE username = ?",
+    let row: Option<(i32, String, String, Option<String>, Option<i32>, Option<String>)> = sqlx::query_as(
+        "SELECT id, username, password_hash, gender, age, job_title FROM users WHERE username = ?",
     )
     .bind(&username)
     .fetch_optional(&pool)
     .await
     .map_err(|e| map_err(e))?;
 
-    let (id, name, hash) = row.ok_or_else(|| {
+    let (id, name, hash, gender, age, job_title) = row.ok_or_else(|| {
         ServerFnError::ServerError {
             message: "Invalid username or password".into(),
             code: 401,
@@ -324,7 +335,7 @@ pub async fn login(username: String, password: String) -> Result<LoginResponse, 
         });
     }
 
-    let user = User { id, username: name };
+    let user = User { id, username: name, gender, age, job_title };
     let token = crate::auth::create_token(&user)
         .map_err(|e| ServerFnError::ServerError {
             message: format!("Failed to create token: {e}"),
@@ -335,8 +346,45 @@ pub async fn login(username: String, password: String) -> Result<LoginResponse, 
     Ok(LoginResponse { user, token })
 }
 
+#[post("/api/profile/update", auth: crate::auth::AuthSession)]
+pub async fn update_profile(
+    gender: Option<String>,
+    age: Option<i32>,
+    job_title: Option<String>,
+) -> Result<User, ServerFnError> {
+    info!("POST /api/profile/update user={}", auth.user.username);
+    let pool = get_pool().await?;
+
+    let gender = gender.filter(|s| !s.trim().is_empty());
+    let job_title = job_title.filter(|s| !s.trim().is_empty());
+
+    sqlx::query(
+        "UPDATE users SET gender = ?, age = ?, job_title = ? WHERE id = ?",
+    )
+    .bind(&gender)
+    .bind(age)
+    .bind(&job_title)
+    .bind(auth.user.id)
+    .execute(&pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
+    Ok(User {
+        id: auth.user.id,
+        username: auth.user.username,
+        gender,
+        age,
+        job_title,
+    })
+}
 #[post("/api/register")]
-pub async fn register(username: String, password: String) -> Result<LoginResponse, ServerFnError> {
+pub async fn register(
+    username: String,
+    password: String,
+    gender: Option<String>,
+    age: Option<i32>,
+    job_title: Option<String>,
+) -> Result<LoginResponse, ServerFnError> {
     info!("POST /api/register username={username:?}");
     let pool = get_pool().await?;
 
@@ -377,10 +425,13 @@ pub async fn register(username: String, password: String) -> Result<LoginRespons
     let hash = hash_password(&password);
 
     let result = sqlx::query(
-        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+        "INSERT INTO users (username, password_hash, gender, age, job_title) VALUES (?, ?, ?, ?, ?)",
     )
     .bind(&username)
     .bind(&hash)
+    .bind(&gender)
+    .bind(age)
+    .bind(&job_title)
     .execute(&pool)
     .await
     .map_err(|e| map_err(e))?;
@@ -388,6 +439,9 @@ pub async fn register(username: String, password: String) -> Result<LoginRespons
     let user = User {
         id: result.last_insert_rowid() as i32,
         username,
+        gender,
+        age,
+        job_title,
     };
 
     let token = crate::auth::create_token(&user)

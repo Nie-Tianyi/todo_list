@@ -100,6 +100,9 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthSession {
             user: User {
                 id: claims.sub,
                 username: claims.username,
+                gender: None,
+                age: None,
+                job_title: None,
             },
         })
     }
@@ -172,6 +175,12 @@ impl AuthContext {
         );
         set_request_headers(headers);
         self.0.set(Some(state));
+    }
+
+    pub fn update_user(mut self, user: User) {
+        if let Some(ref mut state) = *self.0.write() {
+            state.user = user;
+        }
     }
 
     pub fn logout(mut self) {

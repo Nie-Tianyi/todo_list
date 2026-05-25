@@ -87,6 +87,9 @@ impl Priority {
 pub struct User {
     pub id: i32,
     pub username: String,
+    pub gender: Option<String>,
+    pub age: Option<i32>,
+    pub job_title: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
