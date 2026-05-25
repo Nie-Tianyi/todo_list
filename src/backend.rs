@@ -13,7 +13,7 @@ pub async fn get_tasks() -> Result<Vec<Task>, ServerFnError> {
     info!("GET /api/tasks user={}", auth.user.username);
     let pool = crate::server::get_pool().await?;
     let rows = sqlx::query(
-        "SELECT id, title, description, priority, status, assignee, completed_by, start_date, due_date FROM tasks ORDER BY id",
+        "SELECT id, title, description, priority, status, assignee, completed_by, start_date, due_date, deleted, archived FROM tasks WHERE deleted = 0 AND archived = 0 ORDER BY id",
     )
     .fetch_all(&pool)
     .await
@@ -54,6 +54,8 @@ pub async fn create_task(
         completed_by: None,
         start_date,
         due_date,
+        deleted: false,
+        archived: false,
     })
 }
 
@@ -62,8 +64,8 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
     info!("POST /api/tasks/save id={} user={}", task.id, auth.user.username);
     let pool = crate::server::get_pool().await?;
     sqlx::query(
-        "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by, start_date, due_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by, start_date, due_date, deleted, archived)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
              title = excluded.title,
              description = excluded.description,
@@ -72,7 +74,9 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
              assignee = excluded.assignee,
              completed_by = excluded.completed_by,
              start_date = excluded.start_date,
-             due_date = excluded.due_date",
+             due_date = excluded.due_date,
+             deleted = excluded.deleted,
+             archived = excluded.archived",
     )
     .bind(task.id as i64)
     .bind(&task.title)
@@ -83,6 +87,8 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
     .bind(&task.completed_by)
     .bind(task.start_date.map(|d| d.format("%Y-%m-%d").to_string()))
     .bind(task.due_date.map(|d| d.format("%Y-%m-%d").to_string()))
+    .bind(task.deleted as i64)
+    .bind(task.archived as i64)
     .execute(&pool)
     .await
     .map_err(|e| crate::server::map_err(e))?;

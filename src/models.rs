@@ -110,6 +110,8 @@ pub struct Task {
     pub completed_by: Option<String>,
     pub start_date: Option<NaiveDate>,
     pub due_date: Option<NaiveDate>,
+    pub deleted: bool,
+    pub archived: bool,
 }
 
 // `default_tasks()` moved to `server.rs`

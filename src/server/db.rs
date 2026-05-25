@@ -78,6 +78,12 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
     let _ = sqlx::query("ALTER TABLE tasks ADD COLUMN due_date TEXT")
         .execute(pool)
         .await;
+    let _ = sqlx::query("ALTER TABLE tasks ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
+        .execute(pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+        .execute(pool)
+        .await;
 
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tasks")
         .fetch_one(pool)
@@ -88,8 +94,8 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
         info!("seeding {} default tasks", default_tasks().len());
         for task in default_tasks() {
             sqlx::query(
-                "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by, start_date, due_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO tasks (id, title, description, priority, status, assignee, completed_by, start_date, due_date, deleted, archived)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .bind(task.id as i64)
             .bind(&task.title)
@@ -100,6 +106,8 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
             .bind(&task.completed_by)
             .bind(task.start_date.map(|d| d.format("%Y-%m-%d").to_string()))
             .bind(task.due_date.map(|d| d.format("%Y-%m-%d").to_string()))
+            .bind(task.deleted as i64)
+            .bind(task.archived as i64)
             .execute(pool)
             .await
             .map_err(|e| map_err(e))?;
@@ -232,6 +240,8 @@ pub fn row_to_task(row: &SqliteRow) -> Task {
         due_date: row
             .get::<Option<String>, _>("due_date")
             .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+        deleted: row.get::<i64, _>("deleted") != 0,
+        archived: row.get::<i64, _>("archived") != 0,
     }
 }
 
@@ -251,6 +261,8 @@ fn default_tasks() -> Vec<Task> {
             completed_by: Some("Alice".into()),
             start_date: d(0),
             due_date: d(4),
+            deleted: false,
+            archived: false,
         },
         Task {
             id: 2,
@@ -262,6 +274,8 @@ fn default_tasks() -> Vec<Task> {
             completed_by: None,
             start_date: d(2),
             due_date: d(9),
+            deleted: false,
+            archived: false,
         },
         Task {
             id: 3,
@@ -273,6 +287,8 @@ fn default_tasks() -> Vec<Task> {
             completed_by: None,
             start_date: d(7),
             due_date: d(15),
+            deleted: false,
+            archived: false,
         },
         Task {
             id: 4,
@@ -284,6 +300,8 @@ fn default_tasks() -> Vec<Task> {
             completed_by: None,
             start_date: d(11),
             due_date: d(18),
+            deleted: false,
+            archived: false,
         },
         Task {
             id: 5,
@@ -295,6 +313,8 @@ fn default_tasks() -> Vec<Task> {
             completed_by: None,
             start_date: d(14),
             due_date: d(22),
+            deleted: false,
+            archived: false,
         },
         Task {
             id: 6,
@@ -306,6 +326,8 @@ fn default_tasks() -> Vec<Task> {
             completed_by: None,
             start_date: d(17),
             due_date: d(19),
+            deleted: false,
+            archived: false,
         },
     ]
 }

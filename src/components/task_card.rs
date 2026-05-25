@@ -42,6 +42,26 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
             }
 
             div { class: "flex items-center gap-1.5 border-t border-gray-50 pt-2",
+                // Delete button — only for Todo tasks
+                if task.status == TaskStatus::Todo {
+                    button {
+                        class: "text-[11px] px-2 py-1 rounded-md font-medium bg-red-50 text-red-600
+                                hover:bg-red-100 transition-colors",
+                        onclick: move |_| {
+                            let mut updated = tasks
+                                .read()
+                                .iter()
+                                .find(|t| t.id == task_id)
+                                .cloned()
+                                .unwrap();
+                            updated.deleted = true;
+                            tasks.write().retain(|t| t.id != task_id);
+                            save_tx.send(updated);
+                        },
+                        "Delete"
+                    }
+                }
+
                 if task.assignee.is_none() {
                     button {
                         class: "text-[11px] px-2 py-1 rounded-md font-medium bg-blue-50 text-blue-600
@@ -67,6 +87,26 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
                 }
 
                 div { class: "flex gap-1 ml-auto",
+                    // Archive button — only for Done tasks
+                    if task.status == TaskStatus::Done {
+                        button {
+                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-500
+                                    hover:bg-gray-200 transition-colors",
+                            onclick: move |_| {
+                                let mut updated = tasks
+                                    .read()
+                                    .iter()
+                                    .find(|t| t.id == task_id)
+                                    .cloned()
+                                    .unwrap();
+                                updated.archived = true;
+                                tasks.write().retain(|t| t.id != task_id);
+                                save_tx.send(updated);
+                            },
+                            "Archive"
+                        }
+                    }
+
                     if has_previous {
                         button {
                             class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-500
