@@ -96,20 +96,42 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
     Ok(())
 }
 
+#[get("/api/team/members", auth: crate::auth::AuthSession)]
+pub async fn get_team_members() -> Result<Vec<User>, ServerFnError> {
+    info!("GET /api/team/members user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    let rows = sqlx::query_as("SELECT id, username, gender, age, job_title, email FROM users ORDER BY id")
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(id, username, gender, age, job_title, email)| User {
+            id,
+            username,
+            gender,
+            age,
+            job_title,
+            email,
+        })
+        .collect())
+}
+
 #[post("/api/login")]
 pub async fn login(username: String, password: String) -> Result<LoginResponse, ServerFnError> {
     info!("POST /api/login username={username:?}");
     let pool = crate::server::get_pool().await?;
 
-    let row: Option<(i32, String, String, Option<String>, Option<i32>, Option<String>)> = sqlx::query_as(
-        "SELECT id, username, password_hash, gender, age, job_title FROM users WHERE username = ?",
+    let row: Option<(i32, String, String, Option<String>, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT id, username, password_hash, gender, age, job_title, email FROM users WHERE username = ?",
     )
     .bind(&username)
     .fetch_optional(&pool)
     .await
     .map_err(|e| crate::server::map_err(e))?;
 
-    let (id, name, hash, gender, age, job_title) = row.ok_or_else(|| {
+    let (id, name, hash, gender, age, job_title, email) = row.ok_or_else(|| {
         ServerFnError::ServerError {
             message: "Invalid username or password".into(),
             code: 401,
@@ -125,7 +147,7 @@ pub async fn login(username: String, password: String) -> Result<LoginResponse, 
         });
     }
 
-    let user = User { id, username: name, gender, age, job_title };
+    let user = User { id, username: name, gender, age, job_title, email };
     let token = crate::server::create_token(&user)
         .map_err(|e| ServerFnError::ServerError {
             message: format!("Failed to create token: {e}"),
@@ -141,19 +163,22 @@ pub async fn update_profile(
     gender: Option<String>,
     age: Option<i32>,
     job_title: Option<String>,
+    email: Option<String>,
 ) -> Result<User, ServerFnError> {
     info!("POST /api/profile/update user={}", auth.user.username);
     let pool = crate::server::get_pool().await?;
 
     let gender = gender.filter(|s| !s.trim().is_empty());
     let job_title = job_title.filter(|s| !s.trim().is_empty());
+    let email = email.filter(|s| !s.trim().is_empty());
 
     sqlx::query(
-        "UPDATE users SET gender = ?, age = ?, job_title = ? WHERE id = ?",
+        "UPDATE users SET gender = ?, age = ?, job_title = ?, email = ? WHERE id = ?",
     )
     .bind(&gender)
     .bind(age)
     .bind(&job_title)
+    .bind(&email)
     .bind(auth.user.id)
     .execute(&pool)
     .await
@@ -165,6 +190,7 @@ pub async fn update_profile(
         gender,
         age,
         job_title,
+        email,
     })
 }
 
@@ -175,6 +201,7 @@ pub async fn register(
     gender: Option<String>,
     age: Option<i32>,
     job_title: Option<String>,
+    email: Option<String>,
 ) -> Result<LoginResponse, ServerFnError> {
     info!("POST /api/register username={username:?}");
     let pool = crate::server::get_pool().await?;
@@ -216,13 +243,14 @@ pub async fn register(
     let hash = crate::server::hash_password(&password);
 
     let result = sqlx::query(
-        "INSERT INTO users (username, password_hash, gender, age, job_title) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO users (username, password_hash, gender, age, job_title, email) VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(&username)
     .bind(&hash)
     .bind(&gender)
     .bind(age)
     .bind(&job_title)
+    .bind(&email)
     .execute(&pool)
     .await
     .map_err(|e| crate::server::map_err(e))?;
@@ -233,6 +261,7 @@ pub async fn register(
         gender,
         age,
         job_title,
+        email,
     };
 
     let token = crate::server::create_token(&user)

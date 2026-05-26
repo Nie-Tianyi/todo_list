@@ -158,6 +158,9 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
     let _ = sqlx::query("ALTER TABLE users ADD COLUMN job_title TEXT")
         .execute(pool)
         .await;
+    let _ = sqlx::query("ALTER TABLE users ADD COLUMN email TEXT")
+        .execute(pool)
+        .await;
 
     let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
         .fetch_one(pool)

@@ -8,6 +8,7 @@ use views::PageNoteFound;
 use views::Profile;
 use views::Register;
 use views::RequireAuth;
+use views::Team;
 use views::Todos;
 
 mod auth;
@@ -33,6 +34,8 @@ enum Route {
             Gantt {},
             #[route("/profile")]
             Profile {},
+            #[route("/team")]
+            Team {},
     #[route("/:..segments")]
     PageNoteFound { segments: Vec<String> }
 }

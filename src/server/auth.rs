@@ -102,6 +102,7 @@ impl<S: Send + Sync> axum::extract::FromRequestParts<S> for AuthSession {
                 gender: None,
                 age: None,
                 job_title: None,
+                email: None,
             },
         })
     }

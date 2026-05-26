@@ -11,6 +11,7 @@ pub fn Register() -> Element {
     let mut gender = use_signal(String::new);
     let mut age = use_signal(String::new);
     let mut job_title = use_signal(String::new);
+    let mut email = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut loading = use_signal(|| false);
     let auth = use_context::<AuthContext>();
@@ -123,8 +124,9 @@ pub fn Register() -> Element {
                                     let g = if gender().trim().is_empty() { None } else { Some(gender().trim().to_string()) };
                                     let a = age().trim().parse::<i32>().ok();
                                     let jt = if job_title().trim().is_empty() { None } else { Some(job_title().trim().to_string()) };
+                                    let em = if email().trim().is_empty() { None } else { Some(email().trim().to_string()) };
                                     spawn(async move {
-                                        match register(u, p, g, a, jt).await {
+                                        match register(u, p, g, a, jt, em).await {
                                             Ok(resp) => {
                                                 auth.login(crate::auth::AuthState {
                                                     user: resp.user,
@@ -184,7 +186,7 @@ pub fn Register() -> Element {
                         }
                     }
 
-                    div { class: "mb-6",
+                    div { class: "mb-4",
                         label {
                             class: "block text-sm font-medium text-gray-700 mb-1.5",
                             r#for: "job_title",
@@ -199,6 +201,24 @@ pub fn Register() -> Element {
                             placeholder: "e.g. Software Engineer",
                             value: "{job_title}",
                             oninput: move |e| { job_title.set(e.value()); },
+                        }
+                    }
+
+                    div { class: "mb-6",
+                        label {
+                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            r#for: "email",
+                            "Email (optional)"
+                        }
+                        input {
+                            id: "email",
+                            r#type: "email",
+                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                    transition-shadow",
+                            placeholder: "e.g. alice@example.com",
+                            value: "{email}",
+                            oninput: move |e| { email.set(e.value()); },
                         }
                     }
 
@@ -228,8 +248,9 @@ pub fn Register() -> Element {
                             let g = if gender().trim().is_empty() { None } else { Some(gender().trim().to_string()) };
                             let a = age().trim().parse::<i32>().ok();
                             let jt = if job_title().trim().is_empty() { None } else { Some(job_title().trim().to_string()) };
+                            let em = if email().trim().is_empty() { None } else { Some(email().trim().to_string()) };
                             spawn(async move {
-                                match register(u, p, g, a, jt).await {
+                                match register(u, p, g, a, jt, em).await {
                                     Ok(resp) => {
                                         auth.login(crate::auth::AuthState {
                                             user: resp.user,

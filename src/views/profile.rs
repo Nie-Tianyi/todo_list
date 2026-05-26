@@ -26,6 +26,12 @@ pub fn Profile() -> Element {
             .and_then(|u| u.job_title.clone())
             .unwrap_or_default()
     });
+    let mut email = use_signal(|| {
+        current_user
+            .as_ref()
+            .and_then(|u| u.email.clone())
+            .unwrap_or_default()
+    });
     let mut error = use_signal(|| None::<String>);
     let mut success = use_signal(|| None::<String>);
     let mut loading = use_signal(|| false);
@@ -139,6 +145,28 @@ pub fn Profile() -> Element {
                     }
                 }
 
+                div {
+                    label {
+                        class: "block text-sm font-medium text-gray-700 mb-1.5",
+                        r#for: "email",
+                        "Email"
+                    }
+                    input {
+                        id: "email",
+                        r#type: "email",
+                        class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                transition-shadow",
+                        placeholder: "e.g. alice@example.com",
+                        value: "{email}",
+                        oninput: move |e| {
+                            email.set(e.value());
+                            error.set(None);
+                        success.set(None);
+                        },
+                    }
+                }
+
                 button {
                     class: "w-full px-4 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-lg
                             hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
@@ -160,9 +188,14 @@ pub fn Profile() -> Element {
                         } else {
                             Some(job_title().trim().to_string())
                         };
+                        let em = if email().trim().is_empty() {
+                            None
+                        } else {
+                            Some(email().trim().to_string())
+                        };
 
                         spawn(async move {
-                            match update_profile(g, a, jt).await {
+                            match update_profile(g, a, jt, em).await {
                                 Ok(updated_user) => {
                                     auth.update_user(updated_user);
                                     success.set(Some("Profile updated successfully.".into()));

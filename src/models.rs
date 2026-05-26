@@ -91,6 +91,7 @@ pub struct User {
     pub gender: Option<String>,
     pub age: Option<i32>,
     pub job_title: Option<String>,
+    pub email: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
