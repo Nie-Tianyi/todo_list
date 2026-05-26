@@ -159,7 +159,7 @@ pub fn Documents() -> Element {
                                 div {
                                     key: "{doc.id}",
                                     class: "px-4 py-3 cursor-pointer border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors",
-                                    class: if selected_id() == Some(doc.id) { "bg-blue-50 border-l-2 border-l-blue-500" },
+                                    class: if selected_id() == Some(doc.id) { "bg-blue-50 dark:bg-blue-900/30 border-l-2 border-l-blue-500" },
                                     onclick: {
                                         let doc_id = doc.id;
                                         move |_| select_doc(doc_id)
