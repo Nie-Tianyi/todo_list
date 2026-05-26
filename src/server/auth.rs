@@ -103,6 +103,7 @@ impl<S: Send + Sync> axum::extract::FromRequestParts<S> for AuthSession {
                 age: None,
                 job_title: None,
                 email: None,
+                role: claims.role,
             },
         })
     }
@@ -118,6 +119,7 @@ pub fn create_token(user: &User) -> Result<String, jsonwebtoken::errors::Error> 
     let claims = crate::auth::Claims {
         sub: user.id,
         username: user.username.clone(),
+        role: user.role.clone(),
         exp,
     };
 

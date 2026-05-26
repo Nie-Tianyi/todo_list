@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct Claims {
     pub sub: i32,
     pub username: String,
+    pub role: String,
     pub exp: usize,
 }
 

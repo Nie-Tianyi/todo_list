@@ -161,6 +161,9 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
     let _ = sqlx::query("ALTER TABLE users ADD COLUMN email TEXT")
         .execute(pool)
         .await;
+    let _ = sqlx::query("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+        .execute(pool)
+        .await;
 
     let user_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
         .fetch_one(pool)
@@ -181,6 +184,15 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
                 .await
                 .map_err(|e| map_err(e))?;
         }
+
+        // Seed Administrator account
+        let admin_hash = hash_password("password123");
+        let _ = sqlx::query(
+            "INSERT OR IGNORE INTO users (username, password_hash, role) VALUES ('Administrator', ?, 'admin')",
+        )
+        .bind(&admin_hash)
+        .execute(pool)
+        .await;
     }
 
     // ── Documents table ─────────────────────────

@@ -100,20 +100,21 @@ pub async fn save_task(task: Task) -> Result<(), ServerFnError> {
 pub async fn get_team_members() -> Result<Vec<User>, ServerFnError> {
     info!("GET /api/team/members user={}", auth.user.username);
     let pool = crate::server::get_pool().await?;
-    let rows = sqlx::query_as("SELECT id, username, gender, age, job_title, email FROM users ORDER BY id")
+    let rows = sqlx::query_as("SELECT id, username, gender, age, job_title, email, role FROM users ORDER BY id")
         .fetch_all(&pool)
         .await
         .map_err(|e| crate::server::map_err(e))?;
 
     Ok(rows
         .into_iter()
-        .map(|(id, username, gender, age, job_title, email)| User {
+        .map(|(id, username, gender, age, job_title, email, role)| User {
             id,
             username,
             gender,
             age,
             job_title,
             email,
+            role,
         })
         .collect())
 }
@@ -123,15 +124,15 @@ pub async fn login(username: String, password: String) -> Result<LoginResponse, 
     info!("POST /api/login username={username:?}");
     let pool = crate::server::get_pool().await?;
 
-    let row: Option<(i32, String, String, Option<String>, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT id, username, password_hash, gender, age, job_title, email FROM users WHERE username = ?",
+    let row: Option<(i32, String, String, Option<String>, Option<i32>, Option<String>, Option<String>, String)> = sqlx::query_as(
+        "SELECT id, username, password_hash, gender, age, job_title, email, role FROM users WHERE username = ?",
     )
     .bind(&username)
     .fetch_optional(&pool)
     .await
     .map_err(|e| crate::server::map_err(e))?;
 
-    let (id, name, hash, gender, age, job_title, email) = row.ok_or_else(|| {
+    let (id, name, hash, gender, age, job_title, email, role) = row.ok_or_else(|| {
         ServerFnError::ServerError {
             message: "Invalid username or password".into(),
             code: 401,
@@ -147,7 +148,7 @@ pub async fn login(username: String, password: String) -> Result<LoginResponse, 
         });
     }
 
-    let user = User { id, username: name, gender, age, job_title, email };
+    let user = User { id, username: name, gender, age, job_title, email, role };
     let token = crate::server::create_token(&user)
         .map_err(|e| ServerFnError::ServerError {
             message: format!("Failed to create token: {e}"),
@@ -191,7 +192,74 @@ pub async fn update_profile(
         age,
         job_title,
         email,
+        role: auth.user.role.clone(),
     })
+}
+
+#[post("/api/profile/change-password", auth: crate::auth::AuthSession)]
+pub async fn change_password(
+    current_password: String,
+    new_password: String,
+) -> Result<(), ServerFnError> {
+    info!("POST /api/profile/change-password user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT password_hash FROM users WHERE id = ?")
+            .bind(auth.user.id)
+            .fetch_optional(&pool)
+            .await
+            .map_err(|e| crate::server::map_err(e))?;
+
+    let (hash,) = row.ok_or_else(|| ServerFnError::ServerError {
+        message: "User not found".into(),
+        code: 404,
+        details: None,
+    })?;
+
+    if !crate::server::verify_password(&current_password, &hash) {
+        return Err(ServerFnError::ServerError {
+            message: "Current password is incorrect".into(),
+            code: 401,
+            details: None,
+        });
+    }
+
+    let new_hash = crate::server::hash_password(&new_password);
+    sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
+        .bind(&new_hash)
+        .bind(auth.user.id)
+        .execute(&pool)
+        .await
+        .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(())
+}
+
+#[post("/api/admin/users/:id/delete", auth: crate::auth::AuthSession)]
+pub async fn delete_user(id: i32) -> Result<(), ServerFnError> {
+    info!("POST /api/admin/users/{id}/delete user={}", auth.user.username);
+    if auth.user.role != "admin" {
+        return Err(ServerFnError::ServerError {
+            message: "Unauthorized".into(),
+            code: 403,
+            details: None,
+        });
+    }
+    if id == auth.user.id {
+        return Err(ServerFnError::ServerError {
+            message: "Cannot delete yourself".into(),
+            code: 400,
+            details: None,
+        });
+    }
+    let pool = crate::server::get_pool().await?;
+    sqlx::query("DELETE FROM users WHERE id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(|e| crate::server::map_err(e))?;
+    Ok(())
 }
 
 #[post("/api/register")]
@@ -243,7 +311,7 @@ pub async fn register(
     let hash = crate::server::hash_password(&password);
 
     let result = sqlx::query(
-        "INSERT INTO users (username, password_hash, gender, age, job_title, email) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO users (username, password_hash, gender, age, job_title, email, role) VALUES (?, ?, ?, ?, ?, ?, 'user')",
     )
     .bind(&username)
     .bind(&hash)
@@ -262,6 +330,7 @@ pub async fn register(
         age,
         job_title,
         email,
+        role: "user".to_string(),
     };
 
     let token = crate::server::create_token(&user)
