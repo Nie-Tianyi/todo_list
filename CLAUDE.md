@@ -281,6 +281,10 @@ Fullstack Dioxus 0.7 app with SQLite storage, JWT authentication, and a Kanban b
 
 ```toml
 dioxus = { version = "0.7.1", features = ["router", "fullstack"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"], optional = true }
 argon2 = "0.5"
 jsonwebtoken = "9"
@@ -288,21 +292,28 @@ axum = { version = "0.8", optional = true }
 rand = "0.8"
 http = "1"
 chrono = { version = "0.4", features = ["serde"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 ```
 
 ## File Structure
 
 ```
 src/
-├── main.rs          # Route enum, App component, AuthContext provider
-├── models.rs        # Task, TaskStatus, Priority, User, LoginResponse
-├── backend.rs       # Server functions (CRUD + auth), SQLite migrations
-├── auth.rs          # AuthSession extractor, AuthContext, JWT logic
+├── main.rs          # Route enum, App component, AuthContext + DarkModeContext provider
+├── models.rs        # Task, TaskStatus, Priority, User, LoginResponse, Document
+├── backend.rs       # Server functions (tasks, users, team, documents)
+├── auth.rs          # AuthSession extractor, AuthContext, JWT login helper
+├── server/
+│   ├── mod.rs       # Re-exports db helpers + auth helpers
+│   ├── db.rs        # SQLite pool, migrations, row mappers, seed data
+│   └── auth.rs      # Argon2 password hashing, JWT creation/verification
 ├── views/
 │   ├── mod.rs
-│   ├── navbar.rs        # Layout: nav bar + Outlet, reads AuthContext
+│   ├── navbar.rs        # Layout: nav bar + Outlet, dark mode toggle
 │   ├── todos.rs         # Main Kanban board page (protected)
 │   ├── gantt.rs         # Gantt chart page (protected)
+│   ├── documents.rs     # Notion-like markdown document editor (protected)
+│   ├── team.rs          # Team members directory page (protected)
 │   ├── profile.rs       # User profile page — editable form (protected)
 │   ├── login.rs         # Login form
 │   ├── register.rs      # Registration form with optional profile fields
@@ -324,7 +335,9 @@ src/
     #[layout(RequireAuth)]
         #[route("/")]      Todos {}          // protected — Kanban board
         #[route("/gantt")] Gantt {}          // protected — Gantt chart
+        #[route("/documents")] Documents {}  // protected — Markdown document editor
         #[route("/profile")] Profile {}      // protected — editable profile
+        #[route("/team")] Team {}            // protected — team members directory
 #[route("/:..segments")]    PageNoteFound {} // 404
 ```
 
@@ -349,14 +362,22 @@ src/
 
 ### Server functions
 
+Path parameters use `:param` syntax (Axum-style), **not** `<param>`.
+
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
 | `POST /api/login` | none | Validate credentials, return JWT + User (with profile fields) |
-| `POST /api/register` | none | Create user with optional profile fields (gender, age, job_title), return JWT |
-| `GET /api/tasks` | AuthSession | List all tasks (with start_date, due_date) |
+| `POST /api/register` | none | Create user with optional profile fields (gender, age, job_title, email), return JWT |
+| `GET /api/tasks` | AuthSession | List all tasks (with start_date, due_date, deleted, archived) |
 | `POST /api/tasks` | AuthSession | Create a task with optional start_date and due_date |
-| `POST /api/tasks/save` | AuthSession | Upsert a task (including date fields) |
-| `POST /api/profile/update` | AuthSession | Update own profile (gender, age, job_title) |
+| `POST /api/tasks/save` | AuthSession | Upsert a task (including date fields, deleted, archived) |
+| `GET /api/team/members` | AuthSession | List all users with profile fields |
+| `POST /api/profile/update` | AuthSession | Update own profile (gender, age, job_title, email) |
+| `GET /api/documents` | AuthSession | List current user's documents, ordered by updated_at DESC |
+| `GET /api/documents/:id` | AuthSession | Get single document (ownership check) |
+| `POST /api/documents` | AuthSession | Create document with title, empty content |
+| `POST /api/documents/:id` | AuthSession | Update document title + content + updated_at (ownership check) |
+| `POST /api/documents/:id/delete` | AuthSession | Hard delete document (ownership check) |
 
 ## Data Models
 
@@ -368,6 +389,7 @@ pub struct User {
     pub gender: Option<String>,     // "Male" | "Female" | "Other" | None
     pub age: Option<i32>,
     pub job_title: Option<String>,
+    pub email: Option<String>,
 }
 ```
 
@@ -383,16 +405,35 @@ pub struct Task {
     pub completed_by: Option<String>,
     pub start_date: Option<NaiveDate>,  // chrono::NaiveDate, serialized as "YYYY-MM-DD"
     pub due_date: Option<NaiveDate>,
+    pub deleted: bool,
+    pub archived: bool,
+}
+```
+
+### Document
+```rust
+pub struct Document {
+    pub id: i32,
+    pub user_id: i32,           // owner
+    pub username: String,       // denormalized for display
+    pub title: String,
+    pub content: String,        // raw markdown
+    pub updated_at: String,     // ISO 8601 timestamp
 }
 ```
 
 ## Key Patterns
 
-- **No `cx` / `Scope` / `use_state`** — Dioxus 0.7 uses `use_signal`, `use_resource`, `use_effect`, `use_context`
+- **No `cx` / `Scope` / `use_state`** — Dioxus 0.7 uses `use_signal`, `use_memo`, `use_resource`, `use_effect`, `use_context`
+- **Server function path params use `:param` NOT `<param>`** — `#[get("/api/docs/:id")]` is correct, `<id>` is treated as a literal string and causes silent 404s
 - **Prop drilling** of `Signal<T>` to child components (not context for everything)
 - **Event handler closures** cannot be shared across different event types — inline the logic or use `spawn`
-- **Server-only code** gated with `#[cfg(feature = "server")]` in `backend.rs` and `auth.rs`
-- **Server-only extractors** declared in attribute macros (not function signatures): `#[post("/path", extractor: Type)]`
-- **Dates** use `chrono::NaiveDate` with serde for JSON roundtrip. SQLite stores dates as TEXT in `YYYY-MM-%D` format. Parsed in `row_to_task()` via `NaiveDate::parse_from_str`.
+- **Server-only code** gated with `#[cfg(feature = "server")]` in `backend.rs`, `server/db.rs`, and `server/auth.rs`
+- **Server-only extractors** declared in attribute macros (not function signatures): `#[post("/path", auth: crate::auth::AuthSession)]`
+- **Dates** use `chrono::NaiveDate` with serde for JSON roundtrip. SQLite stores dates as TEXT in `YYYY-MM-DD` format. Parsed in `row_to_task()` via `NaiveDate::parse_from_str`.
 - **Migrations** are additive (ALTER TABLE), silently ignoring "duplicate column" errors. A backfill step updates existing seed tasks with default dates.
 - **Database** auto-migrates via `run_migrations()` on first pool creation; seeds 6 tasks (with dates starting 2026-06-01) + 3 users (Alice/Bob/Charlie, password: `password123`)
+- **Row mappers** (`row_to_task`, `row_to_document`) live in `server/db.rs` — backend.rs calls them via `crate::server::row_to_*()`; `sqlx::Row` trait is only in scope in db.rs
+- **Frontend data loading** uses `use_future` for initial fetch (client-side), not `use_server_future` (SSR hydration). Signal updates trigger re-render.
+- **Markdown rendering** uses `pulldown_cmark::Parser::new_ext()` with ENABLE_TABLES, ENABLE_STRIKETHROUGH, ENABLE_TASKLISTS → `html::push_html()` → `dangerous_inner_html` in RSX
+- **Dark mode** via `DarkModeContext` containing `Signal<bool>`, synced to `document.documentElement.classList` and `localStorage` via `use_effect` + `dioxus::document::eval`
