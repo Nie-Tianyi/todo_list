@@ -30,28 +30,28 @@ pub fn Register() -> Element {
     }
 
     rsx! {
-        div { class: "min-h-screen flex items-center justify-center bg-gray-50",
+        div { class: "min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950",
             div { class: "max-w-md w-full mx-4",
-                div { class: "bg-white rounded-2xl shadow-sm border border-gray-100 p-8",
-                    h2 { class: "text-2xl font-bold text-gray-800 mb-2", "Create Account" }
-                    p { class: "text-sm text-gray-500 mb-6", "Sign up to start managing your tasks." }
+                div { class: "bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8",
+                    h2 { class: "text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2", "Create Account" }
+                    p { class: "text-sm text-gray-500 dark:text-gray-400 mb-6", "Sign up to start managing your tasks." }
 
                     if let Some(ref msg) = error() {
-                        div { class: "mb-4 p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg",
+                        div { class: "mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-lg",
                             "{msg}"
                         }
                     }
 
                     div { class: "mb-4",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "username",
                             "Username"
                         }
                         input {
                             id: "username",
                             r#type: "text",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             placeholder: "Choose a username",
@@ -65,14 +65,14 @@ pub fn Register() -> Element {
 
                     div { class: "mb-4",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "password",
                             "Password"
                         }
                         input {
                             id: "password",
                             r#type: "password",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             placeholder: "At least 6 characters",
@@ -86,14 +86,14 @@ pub fn Register() -> Element {
 
                     div { class: "mb-6",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "confirm",
                             "Confirm Password"
                         }
                         input {
                             id: "confirm",
                             r#type: "password",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             placeholder: "Repeat your password",
@@ -148,13 +148,13 @@ pub fn Register() -> Element {
                     // ── Optional profile fields ─────────────────
                     div { class: "mb-4",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "gender",
                             "Gender (optional)"
                         }
                         select {
                             id: "gender",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             value: "{gender}",
@@ -168,14 +168,14 @@ pub fn Register() -> Element {
 
                     div { class: "mb-4",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "age",
                             "Age (optional)"
                         }
                         input {
                             id: "age",
                             r#type: "number",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             placeholder: "Enter your age",
@@ -188,14 +188,14 @@ pub fn Register() -> Element {
 
                     div { class: "mb-4",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "job_title",
                             "Job Title (optional)"
                         }
                         input {
                             id: "job_title",
                             r#type: "text",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             placeholder: "e.g. Software Engineer",
@@ -206,14 +206,14 @@ pub fn Register() -> Element {
 
                     div { class: "mb-6",
                         label {
-                            class: "block text-sm font-medium text-gray-700 mb-1.5",
+                            class: "block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5",
                             r#for: "email",
                             "Email (optional)"
                         }
                         input {
                             id: "email",
                             r#type: "email",
-                            class: "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm
+                            class: "w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm dark:text-gray-100 dark:bg-gray-800
                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                                     transition-shadow",
                             placeholder: "e.g. alice@example.com",
@@ -272,11 +272,11 @@ pub fn Register() -> Element {
                         }
                     }
 
-                    p { class: "text-center text-sm text-gray-500 mt-4",
+                    p { class: "text-center text-sm text-gray-500 dark:text-gray-400 mt-4",
                         "Already have an account? "
                         Link {
                             to: Route::Login {},
-                            class: "text-blue-500 hover:text-blue-600 font-medium",
+                            class: "text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 font-medium",
                             "Sign in"
                         }
                     }

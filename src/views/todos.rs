@@ -24,7 +24,7 @@ pub fn Todos() -> Element {
     rsx! {
         div { class: "max-w-7xl mx-auto px-6 py-6",
             div { class: "flex items-center justify-between mb-6",
-                h1 { class: "text-2xl font-bold text-gray-800", "Kanban Board" }
+                h1 { class: "text-2xl font-bold text-gray-800 dark:text-gray-100", "Kanban Board" }
                 div { class: "flex items-center gap-4",
                     button {
                         class: "text-sm px-4 py-2 rounded-lg font-medium bg-blue-500 text-white

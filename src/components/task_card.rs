@@ -11,42 +11,42 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
     let has_next = task.status.next().is_some();
 
     rsx! {
-        div { class: "bg-white rounded-lg border border-gray-100 shadow-sm p-3 hover:shadow-md transition-shadow duration-200",
+        div { class: "bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 hover:shadow-md transition-shadow duration-200",
             div { class: "flex items-start justify-between gap-2 mb-1.5",
-                h4 { class: "text-sm font-medium text-gray-800 leading-snug", "{task.title}" }
+                h4 { class: "text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug", "{task.title}" }
                 span { class: "text-[10px] font-medium px-1.5 py-0.5 rounded-full {task.priority.badge_classes()} flex-shrink-0",
                     "{task.priority.label()}"
                 }
             }
 
-            p { class: "text-xs text-gray-500 line-clamp-2 mb-3 leading-relaxed",
+            p { class: "text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 leading-relaxed",
                 "{task.description}"
             }
 
             div { class: "flex items-center gap-2 text-[11px] mb-3",
                 if let Some(ref name) = task.assignee {
-                    span { class: "text-gray-500",
+                    span { class: "text-gray-500 dark:text-gray-400",
                         "Assigned to "
-                        span { class: "font-medium text-gray-700", "{name}" }
+                        span { class: "font-medium text-gray-700 dark:text-gray-200", "{name}" }
                     }
                 } else {
-                    span { class: "text-gray-400 italic", "Unassigned" }
+                    span { class: "text-gray-400 dark:text-gray-500 italic", "Unassigned" }
                 }
 
                 if let Some(ref name) = task.completed_by {
-                    span { class: "text-green-600 ml-auto",
+                    span { class: "text-green-600 dark:text-green-400 ml-auto",
                         "\u{2713} "
                         span { class: "font-medium", "{name}" }
                     }
                 }
             }
 
-            div { class: "flex items-center gap-1.5 border-t border-gray-50 pt-2",
+            div { class: "flex items-center gap-1.5 border-t border-gray-50 dark:border-gray-700 pt-2",
                 // Delete button — only for Todo tasks
                 if task.status == TaskStatus::Todo {
                     button {
-                        class: "text-[11px] px-2 py-1 rounded-md font-medium bg-red-50 text-red-600
-                                hover:bg-red-100 transition-colors",
+                        class: "text-[11px] px-2 py-1 rounded-md font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400
+                                hover:bg-red-100 dark:hover:bg-red-800/50 transition-colors",
                         onclick: move |_| {
                             let mut updated = tasks
                                 .read()
@@ -64,8 +64,8 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
 
                 if task.assignee.is_none() {
                     button {
-                        class: "text-[11px] px-2 py-1 rounded-md font-medium bg-blue-50 text-blue-600
-                                hover:bg-blue-100 transition-colors",
+                        class: "text-[11px] px-2 py-1 rounded-md font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400
+                                hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors",
                         onclick: move |_| {
                             let user = auth.username().unwrap_or_default();
                             let mut updated = tasks
@@ -90,8 +90,8 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
                     // Archive button — only for Done tasks
                     if task.status == TaskStatus::Done {
                         button {
-                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-500
-                                    hover:bg-gray-200 transition-colors",
+                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400
+                                    hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors",
                             onclick: move |_| {
                                 let mut updated = tasks
                                     .read()
@@ -109,8 +109,8 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
 
                     if has_previous {
                         button {
-                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-500
-                                    hover:bg-gray-200 transition-colors",
+                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400
+                                    hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors",
                             onclick: move |_| {
                                 let mut updated = tasks
                                     .read()
@@ -138,8 +138,8 @@ pub fn TaskCard(task: Task, tasks: Signal<Vec<Task>>) -> Element {
 
                     if has_next {
                         button {
-                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 text-gray-500
-                                    hover:bg-gray-200 transition-colors",
+                            class: "text-[11px] px-2 py-1 rounded-md font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400
+                                    hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors",
                             onclick: move |_| {
                                 let user = auth.username().unwrap_or_default();
                                 let mut updated = tasks

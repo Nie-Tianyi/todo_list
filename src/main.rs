@@ -20,6 +20,18 @@ mod models;
 mod server;
 mod views;
 
+#[derive(Clone, Copy)]
+pub struct DarkModeContext {
+    pub is_dark: Signal<bool>,
+}
+
+impl DarkModeContext {
+    pub fn toggle(mut self) {
+        let new_val = !(self.is_dark)();
+        *self.is_dark.write() = new_val;
+    }
+}
+
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 enum Route {
@@ -53,6 +65,40 @@ fn main() {
 fn App() -> Element {
     let auth = AuthContext(use_signal(|| None::<auth::AuthState>));
     use_context_provider(|| auth);
+
+    // Dark mode
+    let mut is_dark = use_signal(|| false);
+
+    // Read preference from localStorage on mount
+    use_effect(move || {
+        spawn(async move {
+            #[cfg(feature = "web")]
+            if let Ok(val) = dioxus::document::eval("localStorage.getItem('darkMode') === 'true'").await
+            {
+                if let serde_json::Value::Bool(true) = val {
+                    *is_dark.write() = true;
+                }
+            }
+        });
+    });
+
+    // Sync dark mode to DOM and localStorage
+    use_effect(move || {
+        let dark = is_dark();
+        #[cfg(feature = "web")]
+        {
+            spawn(async move {
+                let _ = dioxus::document::eval(
+                    &format!(
+                        "document.documentElement.classList.toggle('dark', {dark}); localStorage.setItem('darkMode', '{dark}')"
+                    )
+                ).await;
+            });
+        }
+    });
+
+    let dark_mode = DarkModeContext { is_dark };
+    use_context_provider(|| dark_mode);
 
     rsx! {
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }

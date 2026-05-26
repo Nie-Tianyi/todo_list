@@ -10,10 +10,10 @@ const BAR_HEIGHT: f64 = 28.0;
 
 fn bar_color(priority: &Priority) -> &'static str {
     match priority {
-        Priority::Low => "bg-gray-400",
-        Priority::Medium => "bg-blue-400",
-        Priority::High => "bg-amber-400",
-        Priority::Urgent => "bg-red-400",
+        Priority::Low => "bg-gray-400 dark:bg-gray-500",
+        Priority::Medium => "bg-blue-400 dark:bg-blue-500",
+        Priority::High => "bg-amber-400 dark:bg-amber-500",
+        Priority::Urgent => "bg-red-400 dark:bg-red-500",
     }
 }
 
@@ -46,12 +46,12 @@ pub fn Gantt() -> Element {
     if gantt_tasks.is_empty() {
         return rsx! {
             div { class: "max-w-6xl mx-auto px-6 py-12",
-                h1 { class: "text-2xl font-bold text-gray-800 mb-6", "Gantt Chart" }
-                div { class: "bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center",
-                    p { class: "text-gray-500 text-sm",
+                h1 { class: "text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6", "Gantt Chart" }
+                div { class: "bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-12 text-center",
+                    p { class: "text-gray-500 dark:text-gray-400 text-sm",
                         "No tasks with start and due dates yet."
                     }
-                    p { class: "text-gray-400 text-xs mt-2",
+                    p { class: "text-gray-400 dark:text-gray-500 text-xs mt-2",
                         "Add start and due dates to your tasks to see them on the Gantt chart."
                     }
                 }
@@ -87,16 +87,16 @@ pub fn Gantt() -> Element {
             let bar_days = (dd - sd).num_days().max(0) + 1;
             let bar_w = bar_days as f64 * PIXELS_PER_DAY;
             let bar_top = (ROW_HEIGHT - BAR_HEIGHT) / 2.0;
-            let row_bg = if idx % 2 == 0 { "bg-white" } else { "bg-gray-50/30" };
+            let row_bg = if idx % 2 == 0 { "bg-white dark:bg-gray-900" } else { "bg-gray-50/30 dark:bg-gray-900/50" };
             RowData { task: task.clone(), bar_left, bar_w, bar_days, bar_top, row_bg }
         })
         .collect();
 
     rsx! {
         div { class: "max-w-6xl mx-auto px-6 py-12",
-            h1 { class: "text-2xl font-bold text-gray-800 mb-6", "Gantt Chart" }
+            h1 { class: "text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6", "Gantt Chart" }
 
-            div { class: "bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden",
+            div { class: "bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden",
                 // Scrollable timeline area
                 div {
                     class: "overflow-x-auto",
@@ -105,26 +105,26 @@ pub fn Gantt() -> Element {
 
                         // ── Month header row ──────────────────
                         div {
-                            class: "flex sticky top-0 z-10 bg-gray-50 border-b border-gray-200",
+                            class: "flex sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600",
                             div {
-                                class: "flex-shrink-0 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200",
+                                class: "flex-shrink-0 px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-200 dark:border-gray-600",
                                 style: "width: {LEFT_PANEL_WIDTH}px",
                                 "Task"
                             }
                             div { class: "flex",
                                 for day in &days {
                                     div {
-                                        class: "flex-shrink-0 text-center py-2 border-r border-gray-100",
-                                        class: if is_weekend(day) { "bg-gray-100/50" },
+                                        class: "flex-shrink-0 text-center py-2 border-r border-gray-100 dark:border-gray-700",
+                                        class: if is_weekend(day) { "bg-gray-100/50 dark:bg-gray-800/50" },
                                         style: "width: {PIXELS_PER_DAY}px",
                                         span {
                                             class: "text-[10px] font-medium",
-                                            class: if is_weekend(day) { "text-gray-400" } else { "text-gray-500" },
+                                            class: if is_weekend(day) { "text-gray-400 dark:text-gray-500" } else { "text-gray-500 dark:text-gray-400" },
                                             "{day.format(\"%a\")}"
                                         }
                                         span {
                                             class: "text-[10px] ml-0.5",
-                                            class: if is_weekend(day) { "text-gray-400" } else { "text-gray-500" },
+                                            class: if is_weekend(day) { "text-gray-400 dark:text-gray-500" } else { "text-gray-500 dark:text-gray-400" },
                                             "{day.format(\"%d\")}"
                                         }
                                     }
@@ -135,10 +135,10 @@ pub fn Gantt() -> Element {
                         // ── Task rows ─────────────────────────
                         for row in &rows {
                             div {
-                                class: "flex {row.row_bg} border-b border-gray-100",
+                                class: "flex {row.row_bg} border-b border-gray-100 dark:border-gray-700",
                                 // Task label
                                 div {
-                                    class: "flex-shrink-0 px-3 py-2 text-xs text-gray-700 truncate border-r border-gray-100 flex items-center",
+                                    class: "flex-shrink-0 px-3 py-2 text-xs text-gray-700 dark:text-gray-200 truncate border-r border-gray-100 dark:border-gray-700 flex items-center",
                                     style: "width: {LEFT_PANEL_WIDTH}px",
                                     title: "{row.task.title}",
                                     span { class: "truncate", "{row.task.title}" }

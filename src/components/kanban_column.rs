@@ -14,13 +14,13 @@ pub fn KanbanColumn(
     let color = status.column_color();
 
     rsx! {
-        div { class: "flex flex-col bg-gray-50 rounded-xl border border-gray-100 shadow-sm min-h-[400px]",
+        div { class: "flex flex-col bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm min-h-[400px]",
             div { class: "border-t-4 rounded-t-xl {color} px-4 py-3",
                 div { class: "flex items-center justify-between",
-                    h3 { class: "text-sm font-semibold text-gray-700",
+                    h3 { class: "text-sm font-semibold text-gray-700 dark:text-gray-200",
                         "{status.label()}"
                     }
-                    span { class: "text-xs font-medium text-gray-400 bg-white rounded-full px-2 py-0.5",
+                    span { class: "text-xs font-medium text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-700 rounded-full px-2 py-0.5",
                         "{count}"
                     }
                 }
@@ -36,8 +36,8 @@ pub fn KanbanColumn(
                 }
 
                 if count == 0 {
-                    div { class: "flex-1 flex items-center justify-center border-2 border-dashed border-gray-200 rounded-lg m-1",
-                        p { class: "text-sm text-gray-400", "No tasks" }
+                    div { class: "flex-1 flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg m-1",
+                        p { class: "text-sm text-gray-400 dark:text-gray-500", "No tasks" }
                     }
                 }
             }

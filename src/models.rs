@@ -48,10 +48,10 @@ impl TaskStatus {
 
     pub fn column_color(&self) -> &'static str {
         match self {
-            TaskStatus::Todo => "border-t-blue-400 bg-blue-50/50",
-            TaskStatus::InProgress => "border-t-amber-400 bg-amber-50/50",
-            TaskStatus::InReview => "border-t-purple-400 bg-purple-50/50",
-            TaskStatus::Done => "border-t-green-400 bg-green-50/50",
+            TaskStatus::Todo => "border-t-blue-400 bg-blue-50/50 dark:border-t-blue-500 dark:bg-blue-950/30",
+            TaskStatus::InProgress => "border-t-amber-400 bg-amber-50/50 dark:border-t-amber-500 dark:bg-amber-950/30",
+            TaskStatus::InReview => "border-t-purple-400 bg-purple-50/50 dark:border-t-purple-500 dark:bg-purple-950/30",
+            TaskStatus::Done => "border-t-green-400 bg-green-50/50 dark:border-t-green-500 dark:bg-green-950/30",
         }
     }
 }
@@ -76,10 +76,10 @@ impl Priority {
 
     pub fn badge_classes(&self) -> &'static str {
         match self {
-            Priority::Low => "bg-gray-100 text-gray-600",
-            Priority::Medium => "bg-blue-100 text-blue-600",
-            Priority::High => "bg-orange-100 text-orange-600",
-            Priority::Urgent => "bg-red-100 text-red-600",
+            Priority::Low => "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+            Priority::Medium => "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+            Priority::High => "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+            Priority::Urgent => "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
         }
     }
 }
