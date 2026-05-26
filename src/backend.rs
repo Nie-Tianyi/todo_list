@@ -1,4 +1,4 @@
-use crate::models::{LoginResponse, Priority, Task, User};
+use crate::models::{Document, LoginResponse, Priority, Task, User};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 #[cfg(feature = "server")]
@@ -272,4 +272,109 @@ pub async fn register(
         })?;
 
     Ok(LoginResponse { user, token })
+}
+
+// ── Document server functions ─────────────────
+
+#[get("/api/documents", auth: crate::auth::AuthSession)]
+pub async fn list_documents() -> Result<Vec<Document>, ServerFnError> {
+    info!("GET /api/documents user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    let rows = sqlx::query(
+        "SELECT id, user_id, username, title, content, updated_at FROM documents WHERE user_id = ? ORDER BY updated_at DESC",
+    )
+    .bind(auth.user.id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(rows.iter().map(crate::server::row_to_document).collect())
+}
+
+#[get("/api/documents/:id", auth: crate::auth::AuthSession)]
+pub async fn get_document(id: i32) -> Result<Document, ServerFnError> {
+    info!("GET /api/documents/{id} user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    let row = sqlx::query(
+        "SELECT id, user_id, username, title, content, updated_at FROM documents WHERE id = ? AND user_id = ?",
+    )
+    .bind(id)
+    .bind(auth.user.id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| crate::server::map_err(e))?;
+
+    row.as_ref().map(crate::server::row_to_document)
+    .ok_or_else(|| ServerFnError::ServerError {
+        message: "Document not found".into(),
+        code: 404,
+        details: None,
+    })
+}
+
+#[post("/api/documents", auth: crate::auth::AuthSession)]
+pub async fn create_document(title: String) -> Result<Document, ServerFnError> {
+    info!("POST /api/documents title={title:?} user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    let now = crate::server::now_iso();
+    let result = sqlx::query(
+        "INSERT INTO documents (user_id, username, title, content, updated_at) VALUES (?, ?, ?, '', ?)",
+    )
+    .bind(auth.user.id)
+    .bind(&auth.user.username)
+    .bind(&title)
+    .bind(&now)
+    .execute(&pool)
+    .await
+    .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(Document {
+        id: result.last_insert_rowid() as i32,
+        user_id: auth.user.id,
+        username: auth.user.username,
+        title,
+        content: String::new(),
+        updated_at: now,
+    })
+}
+
+#[post("/api/documents/:id", auth: crate::auth::AuthSession)]
+pub async fn update_document(id: i32, title: String, content: String) -> Result<Document, ServerFnError> {
+    info!("POST /api/documents/{id} user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    let now = crate::server::now_iso();
+    sqlx::query(
+        "UPDATE documents SET title = ?, content = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    )
+    .bind(&title)
+    .bind(&content)
+    .bind(&now)
+    .bind(id)
+    .bind(auth.user.id)
+    .execute(&pool)
+    .await
+    .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(Document {
+        id,
+        user_id: auth.user.id,
+        username: auth.user.username,
+        title,
+        content,
+        updated_at: now,
+    })
+}
+
+#[post("/api/documents/:id/delete", auth: crate::auth::AuthSession)]
+pub async fn delete_document(id: i32) -> Result<(), ServerFnError> {
+    info!("POST /api/documents/{id}/delete user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    sqlx::query("DELETE FROM documents WHERE id = ? AND user_id = ?")
+        .bind(id)
+        .bind(auth.user.id)
+        .execute(&pool)
+        .await
+        .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(())
 }

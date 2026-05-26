@@ -19,6 +19,7 @@ jsonwebtoken = "9"
 axum = { version = "0.8", optional = true }
 http = "1"
 chrono = { version = "0.4", features = ["serde"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 
 [features]
 default = ["web"]

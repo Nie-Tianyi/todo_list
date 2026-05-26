@@ -32,5 +32,8 @@ pub use gantt::Gantt;
 mod team;
 pub use team::Team;
 
+mod documents;
+pub use documents::Documents;
+
 mod require_auth;
 pub use require_auth::RequireAuth;

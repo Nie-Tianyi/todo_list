@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
 use auth::AuthContext;
+use views::Documents;
 use views::Gantt;
 use views::Login;
 use views::Navbar;
@@ -32,6 +33,8 @@ enum Route {
             Todos {},
             #[route("/gantt")]
             Gantt {},
+            #[route("/documents")]
+            Documents {},
             #[route("/profile")]
             Profile {},
             #[route("/team")]

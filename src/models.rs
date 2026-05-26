@@ -115,4 +115,14 @@ pub struct Task {
     pub archived: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Document {
+    pub id: i32,
+    pub user_id: i32,
+    pub username: String,
+    pub title: String,
+    pub content: String,
+    pub updated_at: String,
+}
+
 // `default_tasks()` moved to `server.rs`

@@ -1,4 +1,4 @@
-use crate::models::{Priority, Task, TaskStatus};
+use crate::models::{Document, Priority, Task, TaskStatus};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
@@ -183,7 +183,30 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
         }
     }
 
+    // ── Documents table ─────────────────────────
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT 'Untitled',
+            content TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| map_err(e))?;
+
     Ok(())
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+pub fn now_iso() -> String {
+    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string()
 }
 
 // ── Type conversions ────────────────────────────────────────────────
@@ -245,6 +268,17 @@ pub fn row_to_task(row: &SqliteRow) -> Task {
             .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
         deleted: row.get::<i64, _>("deleted") != 0,
         archived: row.get::<i64, _>("archived") != 0,
+    }
+}
+
+pub fn row_to_document(row: &SqliteRow) -> Document {
+    Document {
+        id: row.get("id"),
+        user_id: row.get("user_id"),
+        username: row.get("username"),
+        title: row.get("title"),
+        content: row.get("content"),
+        updated_at: row.get("updated_at"),
     }
 }
 
