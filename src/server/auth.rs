@@ -30,7 +30,16 @@ pub fn verify_password(password: &str, hash: &str) -> bool {
 
 // ── JWT ─────────────────────────────────────────────────────────────
 
-const JWT_SECRET: &[u8] = b"todo-list-jwt-secret-change-in-production";
+use std::sync::OnceLock;
+
+fn jwt_secret() -> &'static [u8] {
+    static SECRET: OnceLock<Vec<u8>> = OnceLock::new();
+    SECRET.get_or_init(|| {
+        std::env::var("JWT_SECRET")
+            .unwrap_or_else(|_| "todo-list-jwt-secret-change-in-production".to_string())
+            .into_bytes()
+    })
+}
 
 #[derive(Debug)]
 pub struct AuthError {
@@ -126,14 +135,14 @@ pub fn create_token(user: &User) -> Result<String, jsonwebtoken::errors::Error> 
     jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),
         &claims,
-        &jsonwebtoken::EncodingKey::from_secret(JWT_SECRET),
+        &jsonwebtoken::EncodingKey::from_secret(jwt_secret()),
     )
 }
 
 fn validate_token(token: &str) -> Result<crate::auth::Claims, jsonwebtoken::errors::Error> {
     jsonwebtoken::decode::<crate::auth::Claims>(
         token,
-        &jsonwebtoken::DecodingKey::from_secret(JWT_SECRET),
+        &jsonwebtoken::DecodingKey::from_secret(jwt_secret()),
         &jsonwebtoken::Validation::default(),
     )
     .map(|data| data.claims)

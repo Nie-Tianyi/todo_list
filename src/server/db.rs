@@ -31,7 +31,17 @@ pub async fn get_pool() -> Result<SqlitePool, ServerFnError> {
         }
     }
 
-    let db_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("todo_list.db");
+    let db_path_str = std::env::var("DB_PATH").unwrap_or_else(|_| {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("todo_list.db")
+            .display()
+            .to_string()
+    });
+    let db_path = std::path::PathBuf::from(&db_path_str);
+    // ensure parent directory exists (necessary when DB_PATH is a custom path)
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
     let db_path_str = db_path.display().to_string();
     info!("connecting to database at: {db_path_str}");
 
