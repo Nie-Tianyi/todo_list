@@ -222,6 +222,28 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), ServerFnError> {
     .await
     .map_err(|e| map_err(e))?;
 
+    // ── Indexes ───────────────────────────────
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_tasks_deleted_archived ON tasks(deleted, archived)")
+        .execute(pool)
+        .await
+        .map_err(|e| map_err(e))?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
+        .execute(pool)
+        .await
+        .map_err(|e| map_err(e))?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee)")
+        .execute(pool)
+        .await
+        .map_err(|e| map_err(e))?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_documents_user_id_updated ON documents(user_id, updated_at)")
+        .execute(pool)
+        .await
+        .map_err(|e| map_err(e))?;
+
     Ok(())
 }
 
