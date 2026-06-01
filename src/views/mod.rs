@@ -32,6 +32,9 @@ pub use gantt::Gantt;
 mod team;
 pub use team::Team;
 
+mod archives;
+pub use archives::Archives;
+
 mod documents;
 pub use documents::Documents;
 

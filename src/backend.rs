@@ -22,6 +22,20 @@ pub async fn get_tasks() -> Result<Vec<Task>, ServerFnError> {
     Ok(rows.iter().map(crate::server::row_to_task).collect())
 }
 
+#[get("/api/tasks/archived", auth: crate::auth::AuthSession)]
+pub async fn get_archived_tasks() -> Result<Vec<Task>, ServerFnError> {
+    info!("GET /api/tasks/archived user={}", auth.user.username);
+    let pool = crate::server::get_pool().await?;
+    let rows = sqlx::query(
+        "SELECT id, title, description, priority, status, assignee, completed_by, start_date, due_date, deleted, archived FROM tasks WHERE deleted = 0 AND archived = 1 ORDER BY id",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| crate::server::map_err(e))?;
+
+    Ok(rows.iter().map(crate::server::row_to_task).collect())
+}
+
 #[post("/api/tasks", auth: crate::auth::AuthSession)]
 pub async fn create_task(
     title: String,

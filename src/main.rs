@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
 use auth::AuthContext;
+use views::Archives;
 use views::Documents;
 use views::Gantt;
 use views::Login;
@@ -51,6 +52,8 @@ enum Route {
             Profile {},
             #[route("/team")]
             Team {},
+            #[route("/archives")]
+            Archives {},
     #[route("/:..segments")]
     PageNoteFound { segments: Vec<String> }
 }
